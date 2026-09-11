@@ -1,0 +1,16 @@
+{
+  "name": "alvin-party-games",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "炸彈超人＋十六張・連線對戰（不需登入）",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

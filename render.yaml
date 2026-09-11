@@ -1,0 +1,12 @@
+# 放著這個檔，Render 就會自動認出設定，不用手動填。
+# name 就是網址子網域（全球唯一）。Render 說已被使用的話，改這一行再存檔即可。
+# 用法：把這個資料夾推上 GitHub → Render → New → Blueprint → 選那個 repo。
+services:
+  - type: web
+    name: alvin-party-games
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.mjs
+    healthCheckPath: /
+    autoDeploy: true
