@@ -235,6 +235,66 @@
     background:rgba(216,180,90,.18); color:var(--gold);}
   .nethint{font-size:11.5px; line-height:1.7; color:var(--silk-dim);}
   .nethint b{color:var(--silk);}
+  .tenhead{display:flex; align-items:baseline; gap:7px; flex-wrap:wrap; margin-bottom:7px;}
+  .tenhead b{font-size:14px;}
+  .tenhead b.on{color:var(--good);}
+  .tenhead b.far{color:var(--silk);}
+  .tenhead span{font-size:11px; color:var(--silk-dim);}
+  .waits{display:flex; flex-wrap:wrap; gap:6px;}
+  .waits .wt{
+    display:flex; flex-direction:column; align-items:center; gap:2px;
+    padding:4px 5px 3px; border-radius:8px; background:rgba(0,0,0,.22); border:1px solid var(--line);
+  }
+  .waits .wt.dead{opacity:.42;}
+  .waits .wt i{
+    font-style:normal; font-family:"Chivo Mono",monospace; font-size:10px;
+    color:var(--gold); font-variant-numeric:tabular-nums;
+  }
+  .waits .wt.dead i{color:var(--bad);}
+  .tenfoot{font-size:11px; color:var(--silk-dim); margin-top:7px; line-height:1.7;}
+  .tenfoot b{color:var(--silk);}
+  .chips{display:flex; flex-direction:column; gap:4px;}
+  .chips .r{
+    display:grid; grid-template-columns:18px 1fr auto auto; gap:7px; align-items:baseline;
+    padding:5px 8px; border-radius:8px; background:rgba(0,0,0,.2);
+  }
+  .chips .r.me{outline:1px solid var(--gold);}
+  .chips .r.dealer{background:rgba(216,180,90,.12);}
+  .chips .w{color:var(--gold); font-weight:700; font-size:11px;}
+  .chips .nm{font-size:12px; color:var(--silk); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .chips .v{
+    font-family:"Chivo Mono",monospace; font-size:14px; font-variant-numeric:tabular-nums;
+    color:var(--good); min-width:62px; text-align:right;
+  }
+  .chips .v.neg{color:var(--bad);}
+  .chips .d{
+    font-family:"Chivo Mono",monospace; font-size:11px; font-variant-numeric:tabular-nums;
+    min-width:52px; text-align:right; color:var(--silk-dim);
+  }
+  .chips .d.up{color:var(--good);} .chips .d.dn{color:var(--bad);}
+  .chips .sum{
+    display:flex; justify-content:space-between; font-size:11px; color:var(--silk-dim);
+    padding:4px 8px 0; border-top:1px dashed var(--line); margin-top:2px;
+  }
+  .chatlog{
+    height:132px; overflow-y:auto; display:flex; flex-direction:column; gap:3px;
+    font-size:12px; line-height:1.55; padding:6px 7px; border-radius:8px;
+    background:rgba(0,0,0,.22); border:1px solid var(--line); margin-bottom:6px;
+  }
+  .chatlog::-webkit-scrollbar{width:6px;}
+  .chatlog::-webkit-scrollbar-thumb{background:rgba(216,180,90,.3); border-radius:3px;}
+  .chatlog div{word-break:break-word;}
+  .chatlog b{color:var(--gold); margin-right:5px;}
+  .chatlog .me b{color:var(--good);}
+  .chatlog .sys{color:var(--silk-dim); font-size:11px;}
+  .chatlog .empty{color:var(--silk-dim); font-size:11.5px;}
+  .quick{display:flex; flex-wrap:wrap; gap:4px; margin-bottom:6px;}
+  .quick button{
+    padding:4px 9px; font-size:11px; border-radius:99px; cursor:pointer;
+    border:1px solid var(--line); background:var(--panel-2); color:var(--silk-dim);
+    font-family:inherit;
+  }
+  .quick button:hover{background:var(--line); color:var(--silk);}
   .netlink{
     width:100%; font:inherit; font-size:11.5px; padding:5px 7px; border-radius:7px; margin-top:5px;
     border:1px solid var(--line); background:rgba(0,0,0,.3); color:var(--silk);
@@ -247,7 +307,7 @@
     <div class="hud">
       <div><span>圈／局</span><b id="hRound">東 1</b></div>
       <div><span>剩餘牌</span><b id="hLeft">0</b></div>
-      <div class="g"><span>你的分數</span><b id="hScore">0</b></div>
+      <div class="g"><span>你的籌碼</span><b id="hScore">0</b></div>
       <div><span>連莊</span><b id="hDealer">0</b></div>
       <div><span>你的向聽</span><b id="hShanten">—</b></div>
     </div>
@@ -259,7 +319,18 @@
       <div class="acts" id="acts"></div>
     </div>
     <div class="side">
+      <div class="card"><h3>聽牌</h3><div id="tenpai"></div></div>
+      <div class="card"><h3>籌碼</h3><div class="chips" id="chips"></div></div>
       <div class="card netcard"><h3>連線對戰</h3><div id="netbox"></div></div>
+      <div class="card" id="chatcard" hidden>
+        <h3>聊天</h3>
+        <div class="chatlog" id="chatlog"></div>
+        <div class="quick" id="quick"></div>
+        <div class="netrow">
+          <input id="chatin" maxlength="60" placeholder="說點什麼…">
+          <button class="btn mini" id="chatsend">送出</button>
+        </div>
+      </div>
       <div class="card"><h3>牌局參數</h3><div id="params"></div></div>
       <div class="card"><h3>台數表</h3><div class="tais-tbl" id="taiTable"></div></div>
       <div class="card"><h3>怎麼玩</h3><div class="hintbox">
@@ -676,6 +747,8 @@ const OPT = {
   mode: 1,            // 0 單局 1 一圈 2 一將
   thinkMin: 1500, thinkMax: 4200,          // 電腦的思考時間（原本 500/1400，拉長三倍）
   claimMs: 9000,      // 你可以考慮吃碰槓的時間（原本 3000，拉長三倍；0 = 不限時）
+  autoWin: 1,         // 聽牌後胡牌的那張一出現就自動胡，不必趕著按
+  chips0: 0,          // 起始籌碼。輸到負的不會停，麻將本來就是欠著記帳
   afkMs: 45000,       // 連線時多久沒動作就幫他打這一手（0 = 不限）
   showHands: 0,       // 是否掀開電腦的手牌（觀戰／除錯）
   autoSort: 1,
@@ -720,6 +793,8 @@ const S = {
   seatGone: [0, 0, 0, 0],                // 斷線的時間戳，用來決定座位要不要讓給別人
   away: [false, false, false, false],    // 掛著代打（人還在，只是暫離）
   logs: [],                              // 牌局紀錄的文字，客端靠這個顯示
+  chat: [],                              // 聊天訊息 {n 名字, t 內容, s 座位}
+  lastPay: null,                         // 上一局每家的輸贏，籌碼面板拿來顯示增減
   claim: null,                           // 吃碰槓胡的徵詢（可能同時有好幾個真人要回答）
 };
 /* ME = 我坐第幾席。單機永遠是 0；連線時由房主指派，畫面會轉成「我一律在下方」。 */
@@ -1044,7 +1119,10 @@ function declareWin(seat, tile, selfDraw, from, robKong) {
   } else {
     pay[from] = -net; pay[seat] = net;
   }
+  /* 籌碼直接加減，沒有下限 —— 輸到負的照樣繼續打，這就是麻將的記帳方式。
+     JS 的安全整數到 9,007,199,254,740,991，實務上等同無限。 */
   for (let i = 0; i < 4; i++) S.scores[i] += pay[i];
+  S.lastPay = pay.slice();
   S.result = { seat, tile, selfDraw, from, sc, amount, rake, net, pay, tiles: [...tiles].sort((a, b) => a - b) };
   log(`🏆 <b>${seatName(seat)}</b> ${selfDraw ? "自摸" : "胡 " + seatName(from) + " 的"} ${tileName(tile)}　` +
       `<b>${sc.total} 台</b>　${sc.tais.map((x) => x.n).join("、")}`);
@@ -1053,6 +1131,7 @@ function declareWin(seat, tile, selfDraw, from, robKong) {
 function drawGame() {
   S.over = true; S.phase = "over";
   S.result = { draw: true };
+  S.lastPay = [0, 0, 0, 0];
   log("🌊 <b>流局</b>　牌摸完了，沒有人胡");
   render();
 }
@@ -1333,6 +1412,9 @@ function render() {
   renderActs();
   syncHud();
   renderNet();
+  renderTenpai();
+  renderChips();
+  paintChat();
   if (NET.mode === "host") NET.push();     // 房主每次重畫就把各人的視角推出去
 }
 function bestDiscardHint() {
@@ -1386,8 +1468,27 @@ function resultBanner() {
 }
 let claimTick = null;
 function stopClaimTick() { if (claimTick) { clearInterval(claimTick); claimTick = null; } }
+let autoWinAt = null;                     // 這一次機會是否已經自動送出，避免重複送
+function tryAutoWin() {
+  if (!OPT.autoWin || S.over) { autoWinAt = null; return false; }
+  const claimWin = (S.claim && S.claim.need[ME] !== undefined && S.claim.got[ME] === undefined)
+    ? S.claim.need[ME].find((o) => o.type === "win") : null;
+  const selfWin = (S.pending && S.pending.kind === "self" && S.pending.seat === ME)
+    ? S.pending.opts.find((o) => o.type === "win") : null;
+  if (!claimWin && !selfWin) { autoWinAt = null; return false; }
+  const key = (claimWin ? "c" + S.claim.tile + "-" + S.claim.from : "s" + S.drawn) + "-" + S.round;
+  if (autoWinAt === key) return true;     // 同一次機會只送一次
+  autoWinAt = key;
+  setTimeout(() => act(claimWin ? { kind: "claim", pick: claimWin } : { kind: "self", opt: selfWin }), 0);
+  return true;
+}
 function renderActs() {
   stopClaimTick();
+  if (tryAutoWin()) {
+    const A0 = $("acts");
+    A0.innerHTML = '<div style="font-size:14px;color:var(--good);font-weight:700;align-self:center">🎉 胡了！自動幫你叫牌…</div>';
+    return;
+  }
   const A = $("acts"); A.innerHTML = "";
   const mk = (txt, cls, fn) => {
     const b = document.createElement("button");
@@ -1450,10 +1551,97 @@ function renderActs() {
     A.appendChild(info);
   }
 }
+/* ---------- 聽牌 ----------
+   算「我在聽哪幾張」要用 3n+1 張的手牌。輪到自己、手上是 3n+2 張的時候，
+   先照建議打掉一張再算，顯示的才是「這樣打之後會聽什麼」。 */
+function waitInfo() {
+  const meld = S.melds[ME].length * 3;
+  let hand = [...S.hands[ME], S.drawn].filter((x) => x !== null && x !== undefined);
+  if (!hand.length) return null;
+  let toss = null;
+  if ((hand.length + meld) % 3 === 2) {              // 多一張，先打掉建議的那張
+    toss = bestDiscardHint();
+    const i = hand.indexOf(toss);
+    if (i >= 0) hand.splice(i, 1);
+  }
+  const sh = shantenOf(hand, S.melds[ME]);
+  if (sh > 0) return { sh, toss, waits: [] };
+  const held = toCounts(hand);
+  const waits = waitsOf(hand, S.melds[ME]).map((tile) => ({
+    tile,
+    // 還有幾張活著：四張扣掉場上已現的，再扣掉自己手裡握的
+    left: Math.max(0, 4 - S.visible[tile] - held[tile]),
+  }));
+  return { sh: 0, toss, waits };
+}
+function renderTenpai() {
+  const box = $("tenpai");
+  if (!box) return;
+  box.innerHTML = "";
+  const info = waitInfo();
+  if (!info) { box.innerHTML = '<div class="tenfoot">等發牌…</div>'; return; }
+  const head = document.createElement("div");
+  head.className = "tenhead";
+  if (info.sh > 0) {
+    head.innerHTML = '<b class="far">距離聽牌 ' + info.sh + ' 向</b>' +
+      '<span>還要再進 ' + info.sh + ' 張有用的牌</span>';
+    box.appendChild(head);
+    return;
+  }
+  const total = info.waits.reduce((a, w) => a + w.left, 0);
+  head.innerHTML = '<b class="on">已聽牌</b><span>聽 ' + info.waits.length + ' 種・場上還有 ' + total + ' 張</span>';
+  box.appendChild(head);
+  const row = document.createElement("div");
+  row.className = "waits";
+  for (const w of info.waits) {
+    const d = document.createElement("div");
+    d.className = "wt" + (w.left === 0 ? " dead" : "");
+    d.appendChild(tileEl(w.tile, { size: "xs" }));
+    const i = document.createElement("i");
+    i.textContent = w.left === 0 ? "死" : w.left;
+    d.appendChild(i);
+    d.title = tileName(w.tile) + (w.left === 0 ? "（四張都出現了，摸不到）" : "，還有 " + w.left + " 張");
+    row.appendChild(d);
+  }
+  box.appendChild(row);
+  const foot = document.createElement("div");
+  foot.className = "tenfoot";
+  foot.innerHTML =
+    (info.toss !== null && info.toss !== undefined ? '打掉 <b>' + tileName(info.toss) + '</b> 之後就是這個聽法。<br>' : '') +
+    (total === 0 ? '<b>死聽</b>：聽的牌都出完了，只能改聽或等流局。'
+                 : (OPT.autoWin ? '這些牌只要一出現，<b>系統會自動幫你胡</b>。'
+                                : '自動胡牌是關的，要自己按「胡」。'));
+  box.appendChild(foot);
+}
+
+/* 籌碼面板。負數用紅色，而且刻意不做任何下限 —— 使用者要的就是能一直欠下去。 */
+function renderChips() {
+  const box = $("chips");
+  if (!box) return;
+  const rows = [0, 1, 2, 3].map((s) => {
+    const v = S.scores[s];
+    const d = S.lastPay ? S.lastPay[s] : 0;
+    const cls = "r" + (s === ME ? " me" : "") + (s === S.dealer ? " dealer" : "");
+    const dTxt = d === 0 ? "" : (d > 0 ? "+" + d : "" + d);
+    const dCls = d > 0 ? "d up" : d < 0 ? "d dn" : "d";
+    return '<div class="' + cls + '">' +
+      '<span class="w">' + WINDS[seatWind(s)] + '</span>' +
+      '<span class="nm">' + esc(seatName(s)) + (s === S.dealer ? "・莊" : "") + '</span>' +
+      '<span class="v' + (v < 0 ? " neg" : "") + '">' + v + '</span>' +
+      '<span class="' + dCls + '">' + dTxt + '</span></div>';
+  }).join("");
+  const total = S.scores.reduce((a, b) => a + b, 0);
+  box.innerHTML = rows +
+    '<div class="sum"><span>四家合計</span><span>' + total + '</span></div>' +
+    '<div class="sum" style="border:0"><span>底 ' + OPT.base + '／台 ' + OPT.tai +
+    (OPT.rake ? '／抽水 ' + OPT.rake + '%' : '') + '</span><span>' +
+    (OPT.chips0 ? '起始 ' + OPT.chips0 : '從 0 記帳') + '</span></div>';
+}
 function syncHud() {
   $("hRound").textContent = WINDS[S.roundWind] + " " + S.hand;
   $("hLeft").textContent = S.wall.length;
   $("hScore").textContent = S.scores[ME];
+  $("hScore").style.color = S.scores[ME] < 0 ? "var(--bad)" : "";
   $("hDealer").textContent = S.streak;
   const hand = [...S.hands[ME], S.drawn].filter((t) => t !== null && t !== undefined);
   if (hand.length) {
@@ -1475,6 +1663,9 @@ const PARAMS = [
   { k: "thinkMax", n: "電腦思考上限", min: 0, max: 12000, step: 100, o: OPT, f: (v) => (v / 1000).toFixed(1) + "s" },
   { k: "claimMs", n: "你的吃碰時間", min: 0, max: 30000, step: 1000, o: OPT,
     f: (v) => (v === 0 ? "不限時" : (v / 1000) + "s") },
+  { k: "autoWin", n: "自動胡牌", seg: ["關", "開"], o: OPT, re: render },
+  { k: "chips0", n: "起始籌碼", min: 0, max: 50000, step: 500, o: OPT,
+    f: (v) => (v === 0 ? "從 0 記帳" : v + ""), re: () => renderChips() },
   { k: "afkMs", n: "代打等待", min: 0, max: 120000, step: 5000, o: OPT,
     f: (v) => (v === 0 ? "不限時" : (v / 1000) + "s") },
   { k: "showHands", n: "掀開手牌", seg: ["關", "開"], o: OPT, re: render },
@@ -1529,7 +1720,11 @@ function drawParams() {
   const nb = document.createElement("button");
   nb.className = "btn"; nb.style.cssText = "width:100%;margin-top:9px;padding:8px";
   nb.textContent = "重新開一局";
-  nb.onclick = () => { S.scores = [0, 0, 0, 0]; S.dealer = 0; S.roundWind = 0; S.hand = 1; S.streak = 0; newHand(); };
+  nb.onclick = () => {
+    S.scores = [OPT.chips0, OPT.chips0, OPT.chips0, OPT.chips0];
+    S.lastPay = null;
+    S.dealer = 0; S.roundWind = 0; S.hand = 1; S.streak = 0; newHand();
+  };
   if (NET.mode === "guest") { nb.disabled = true; nb.textContent = "重新開一局（由房主按）"; }
   box.appendChild(nb);
 }
@@ -1589,13 +1784,13 @@ function seatView(seat) {
     turn: S.turn, dealer: S.dealer, rw: S.roundWind, hd: S.hand, streak: S.streak,
     scores: S.scores, phase: S.phase, over: S.over, result: S.result,
     wall: S.wall.length, names: S.seatOf, ai: S.seatAI, away: S.away,
-    logs: S.logs,
+    logs: S.logs, chat: S.chat, lastPay: S.lastPay,
     pending: (S.pending && S.pending.seat === seat) ? { kind: S.pending.kind, opts: S.pending.opts } : null,
     claim: S.claim ? {
       tile: S.claim.tile, from: S.claim.from, until: S.claim.until,
       opts: (S.claim.need[seat] !== undefined && S.claim.got[seat] === undefined) ? S.claim.need[seat] : null,
     } : null,
-    opt: { claimMs: OPT.claimMs, base: OPT.base, tai: OPT.tai, rake: OPT.rake, mode: OPT.mode },
+    opt: { claimMs: OPT.claimMs, base: OPT.base, tai: OPT.tai, rake: OPT.rake, mode: OPT.mode, chips0: OPT.chips0 },
     seats: S.seatPeer,
   };
 }
@@ -1611,6 +1806,8 @@ function applyView(v) {
   S.wall = new Array(v.wall);
   S.seatOf = v.names; S.seatAI = v.ai; S.away = v.away; S.seatPeer = v.seats;
   S.logs = v.logs; paintLog();
+  S.chat = v.chat || [];
+  S.lastPay = v.lastPay || null;
   S.pending = v.pending ? { seat: v.me, kind: v.pending.kind, opts: v.pending.opts } : null;
   S.claim = v.claim
     ? { tile: v.claim.tile, from: v.claim.from, until: v.claim.until,
@@ -1638,6 +1835,54 @@ NET.push = function () {
   }
 };
 
+/* ---------- 聊天 ----------
+   內容一律當成純文字處理。牌局紀錄那一欄是用 innerHTML 畫的，
+   聊天如果照搬就等於讓別人往你的頁面塞 HTML，所以這裡自己escape。 */
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const chatCD = {};                       // 每個人的上次發言時間，擋洗版
+function pushChat(who, text, seat) {
+  const s = String(text == null ? "" : text).replace(/\s+/g, " ").trim().slice(0, 60);
+  if (!s) return;
+  const key = seat >= 0 ? "s" + seat : "w" + who;
+  const now = Date.now();
+  if (chatCD[key] && now - chatCD[key] < 500) return;     // 半秒內只收一則
+  chatCD[key] = now;
+  S.chat.push({ n: String(who || "玩家").slice(0, 8), t: s, s: seat });
+  while (S.chat.length > 60) S.chat.shift();
+  render();
+}
+const QUICK = ["碰！", "等我一下", "快一點啦", "不好意思", "好牌～", "再一局"];
+function paintChat() {
+  const box = $("chatlog");
+  if (!box) return;
+  const card = $("chatcard");
+  if (card) card.hidden = NET.mode === "solo";
+  if (!S.chat.length) {
+    box.innerHTML = '<div class="empty">還沒有人說話。打字或按下面的快速語句都可以。</div>';
+    return;
+  }
+  box.innerHTML = S.chat.map((c) =>
+    '<div class="' + (c.s === ME ? "me" : "") + '"><b>' + esc(c.n) + '</b>' + esc(c.t) + '</div>').join("");
+  box.scrollTop = box.scrollHeight;
+}
+/* 輸入框與按鈕只綁一次。每次重畫都重建的話，正在打的字會被清掉 ——
+   炸彈超人的名字欄踩過同一個坑。 */
+function bindChat() {
+  const inp = $("chatin"), btn = $("chatsend"), q = $("quick");
+  if (!inp || !btn) return;
+  const send = () => {
+    const v = inp.value.trim();
+    if (!v) return;
+    inp.value = "";
+    act({ kind: "chat", text: v });
+  };
+  btn.onclick = send;
+  inp.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); send(); } };
+  if (q) q.innerHTML = QUICK.map((x) => '<button type="button">' + esc(x) + "</button>").join("");
+  if (q) q.querySelectorAll("button").forEach((b, i) => { b.onclick = () => act({ kind: "chat", text: QUICK[i] }); });
+}
+
 /* ---------- 所有「我要做什麼」都走這裡 ----------
    單機／房主直接執行，客端送給房主由房主裁決。 */
 function act(a) {
@@ -1646,6 +1891,7 @@ function act(a) {
 }
 function applyAction(seat, a) {
   if (!a || typeof a !== "object") return;
+  if (a.kind === "chat") { pushChat(seat >= 0 ? seatName(seat) : a.who, a.text, seat); return; }
   if (a.kind === "away") { setAway(seat, !!a.on); return; }
   if (a.kind === "next") { if (S.over) nextHand(); return; }
   if (S.over) return;
@@ -1761,7 +2007,14 @@ function netRecv(from, m) {
   if (m.t === "a") {
     if (NET.mode !== "host") return;
     const seat = S.seatPeer.indexOf(from);
-    if (seat < 0) return;                        // 沒有座位的人不能動牌
+    if (seat < 0) {
+      // 沒座位的人不能動牌，但可以講話（在旁邊等的人總得能喊一聲）
+      if (m.a && m.a.kind === "chat") {
+        const p = NET.roster.find((x) => x.peer === from);
+        applyAction(-1, { kind: "chat", text: m.a.text, who: (p && p.name) || "旁觀" });
+      }
+      return;
+    }
     applyAction(seat, m.a);
   } else if (m.t === "v") {
     if (NET.mode !== "guest") return;
@@ -1796,7 +2049,8 @@ function onHostChange(wasHost) {
   S.seatPeer[0] = NET.peer;
   log("👑 原房主離線，改由你這台負責發牌與計算");
   log("♻️ 上一位房主的暗牌帶不過來，重新開一局");
-  S.scores = [0, 0, 0, 0]; S.dealer = 0; S.roundWind = 0; S.hand = 1; S.streak = 0;
+  S.scores = [OPT.chips0, OPT.chips0, OPT.chips0, OPT.chips0]; S.lastPay = null;
+  S.dealer = 0; S.roundWind = 0; S.hand = 1; S.streak = 0;
   syncSeats();
   newHand();
 }
@@ -1992,9 +2246,12 @@ function renderNet() {
 drawParams();
 applyLevel(1);
 S.seatOf[0] = myName();
+S.scores = [OPT.chips0, OPT.chips0, OPT.chips0, OPT.chips0];
 newHand();
 log("點手牌就打出去。右邊可以調底台、AI 難度與進攻防守權重。");
 renderNet();
+bindChat();
+paintChat();
 if (NET.boot) NET.boot();
 
 /* ---------- 測試掛鉤 ---------- */
@@ -2008,6 +2265,7 @@ window.__m = {
   cacheStats: () => ({ hit: cacheHit, miss: cacheMiss, size: winCache.size + shCache.size }),
   setFast: (v) => { FAST = v; },
   NET, act, applyAction, seatView, applyView, setAway, resumeSeat, syncSeats, netRecv,
+  pushChat, paintChat, esc, QUICK, renderChips, renderTenpai, waitInfo, tryAutoWin,
   answerClaim, settleClaims, armClaim, myName, setMyName,
   seatOfMe: () => ME, setMe: (v) => { ME = v; },
   seatWind, WINDS, HONOR, CN,
