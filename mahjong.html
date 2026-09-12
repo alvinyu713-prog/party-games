@@ -136,6 +136,10 @@
   }
   .center .lastout .cap{font-size:10.5px; letter-spacing:.12em; color:var(--silk-dim);}
   .center .lastout .t{width:calc(52px * var(--ts)) !important; height:calc(72px * var(--ts)) !important;}
+  .center .lastout .nm{
+    font-family:"Noto Serif TC",serif; font-size:16px; font-weight:900; color:var(--gold);
+    letter-spacing:.06em; line-height:1.2;
+  }
   .center .lastout .by{font-size:12px; color:var(--silk); font-weight:700;}
   .center .lastout .by i{font-style:normal; color:var(--gold);}
 
@@ -377,6 +381,33 @@
   .chatlog .sys{color:var(--silk-dim); font-size:11px;}
   .chatlog .empty{color:var(--silk-dim); font-size:11.5px;}
   .quick{display:flex; flex-wrap:wrap; gap:4px; margin-bottom:6px;}
+  /* 表情盤。預設收起來，按笑臉才展開，不然聊天卡會被一大片符號佔滿。 */
+  .emoji{
+    display:none; flex-wrap:wrap; gap:2px; margin-bottom:6px; padding:6px;
+    max-height:208px; overflow-y:auto; overscroll-behavior:contain;
+    background:rgba(0,0,0,.22); border:1px solid var(--line); border-radius:8px;
+  }
+  .emoji::-webkit-scrollbar{width:6px;}
+  .emoji::-webkit-scrollbar-thumb{background:rgba(216,180,90,.3); border-radius:3px;}
+  .emoji .cat{
+    width:100%; font-size:10px; letter-spacing:.14em; color:var(--silk-dim);
+    margin:5px 0 1px; padding-left:2px;
+  }
+  .emoji .cat:first-child{margin-top:0;}
+  /* 顏文字是一串字元，不能用表情的字級，不然會爆版 */
+  .emoji button.kao{
+    font-size:11.5px; padding:4px 7px; font-family:"Noto Sans TC",monospace;
+    color:var(--silk); white-space:nowrap;
+  }
+  .emoji.on{display:flex;}
+  .emoji button{
+    font-size:19px; line-height:1; padding:3px 4px; border-radius:6px;
+    border:1px solid transparent; background:none; cursor:pointer;
+    font-family:"Segoe UI Emoji","Noto Color Emoji","Apple Color Emoji",sans-serif;
+  }
+  .emoji button:hover{background:rgba(216,180,90,.22); border-color:var(--line);}
+  .netrow .emo{width:auto; padding:5px 9px; font-size:17px; line-height:1;}
+  .chatlog div{font-family:inherit;}
   .quick button{
     padding:4px 9px; font-size:11px; border-radius:99px; cursor:pointer;
     border:1px solid var(--line); background:var(--panel-2); color:var(--silk-dim);
@@ -416,7 +447,9 @@
         <h3>聊天</h3>
         <div class="chatlog" id="chatlog"></div>
         <div class="quick" id="quick"></div>
+        <div class="emoji" id="emoji"></div>
         <div class="netrow">
+          <button class="btn mini emo" id="emoBtn" title="表情符號">😀</button>
           <input id="chatin" maxlength="60" placeholder="說點什麼…">
           <button class="btn mini" id="chatsend">送出</button>
         </div>
@@ -853,6 +886,7 @@ const OPT = {
   music: 1,           // 背景音樂（同樣是當場合成，沒有外部音檔）
   musicVol: 0.22,     // 音樂音量。預設壓低，不然會蓋掉喊牌的音效
   voice: 1,           // 語音報牌（用瀏覽器內建的語音合成，不需要外部音檔）
+  sayTile: 1,         // 每一張打出的牌都念出牌名（誰打的都念）
   shout: 1,           // 吃碰槓胡的大字提示
   autoWin: 1,         // 聽牌後胡牌的那張一出現就自動胡，不必趕著按
   tileScale: 1,       // 牌桌上的牌面大小
@@ -1504,6 +1538,9 @@ function render() {
     const cap = document.createElement("div"); cap.className = "cap"; cap.textContent = "剛剛打出";
     lo.appendChild(cap);
     lo.appendChild(tileEl(S.lastDiscard, { size: "h" }));
+    const nm = document.createElement("div"); nm.className = "nm";
+    nm.textContent = tileName(S.lastDiscard);
+    lo.appendChild(nm);
     const by = document.createElement("div"); by.className = "by";
     by.innerHTML = "<i>" + esc(seatName(S.lastFrom)) + "</i> 打的";
     lo.appendChild(by);
@@ -1834,6 +1871,7 @@ const PARAMS = [
   { k: "musicVol", n: "音樂音量", min: 0, max: 1, step: .05, o: OPT,
     f: (v) => Math.round(v * 100) + "%", re: () => SFX.musicSync() },
   { k: "voice", n: "語音報牌", seg: ["關", "開"], o: OPT, re: () => { if (OPT.voice) SFX.say("碰"); } },
+  { k: "sayTile", n: "念出打的牌", seg: ["關", "開"], o: OPT, re: () => { if (OPT.sayTile) SFX.say("三條"); } },
   { k: "shout", n: "大字提示", seg: ["關", "開"], o: OPT },
   { k: "autoWin", n: "自動胡牌", seg: ["關", "開"], o: OPT, re: render },
   { k: "chips0", n: "起始籌碼", min: 0, max: 50000, step: 500, o: OPT,
@@ -2244,7 +2282,12 @@ function playEvents() {
     if (e.id <= seenEvt) continue;
     seenEvt = e.id;
     const who = seatName(e.seat);
-    if (e.k === "discard") { SFX.play("click"); continue; }
+    if (e.k === "discard") {
+      SFX.play("click");
+      // 每個人打的牌都念出來，不用一直盯著牌河
+      if (OPT.sayTile && e.tile !== undefined && e.tile !== null) SFX.say(tileName(e.tile));
+      continue;
+    }
     if (e.k === "draw") { if (e.seat === ME) SFX.play("draw"); continue; }
     if (e.k === "drawgame") { SFX.play("drawgame"); shout("流局", "沒有人胡", ""); continue; }
     if (SHOUT_WORD[e.k]) {
@@ -2283,7 +2326,9 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const chatCD = {};                       // 每個人的上次發言時間，擋洗版
 function pushChat(who, text, seat) {
-  const s = String(text == null ? "" : text).replace(/\s+/g, " ").trim().slice(0, 60);
+  /* 用碼點切，不要用 slice —— 表情符號是代理對，從中間切斷會變成亂碼方塊。 */
+  const raw = String(text == null ? "" : text).replace(/\s+/g, " ").trim();
+  const s = Array.from(raw).slice(0, 60).join("");
   if (!s) return;
   const key = seat >= 0 ? "s" + seat : "w" + who;
   const now = Date.now();
@@ -2294,6 +2339,21 @@ function pushChat(who, text, seat) {
   render();
 }
 const QUICK = ["碰！", "等我一下", "快一點啦", "不好意思", "好牌～", "再一局"];
+/* 分類排好，找起來比一大片亂數快。順序照「最常用的在前面」。 */
+const EMOJI_GROUPS = [
+  ["笑", ["😀","😃","😄","😁","😆","😅","🤣","😂","🙂","🙃","😉","😊","😇","🥰","😍","🤩","😘","😋","😛","😜","🤪","😝","🤗","🤭","😏","😌","🥳","😎","🤓","🧐","🤠","😺","😹"]],
+  ["驚訝與難過", ["🤔","🤨","😐","😑","😶","🙄","😬","😮","😯","😲","😳","🥺","🥲","😢","😭","😦","😧","😨","😰","😥","😓","😞","😔","😕","🙁","☹️","😣","😖","😫","😩","🥱","😪","😴","🤤"]],
+  ["生氣與慘", ["😤","😡","😠","🤬","😈","👿","💀","☠️","🤡","👻","🤢","🤮","🤧","😷","🤒","🤕","🥵","🥶","🥴","😵","😵‍💫","🤯","😱","🫠"]],
+  ["手勢", ["👍","👎","👊","✊","🤛","🤜","👏","🙌","👐","🤲","🤝","🙏","✌️","🤞","🤟","🤘","👌","🤌","👈","👉","👆","👇","☝️","✋","🤚","🖐️","🖖","👋","🤙","💪","🫡","🤷","🤦","🙈","🙉","🙊"]],
+  ["牌局", ["🀄","🎴","🃏","🎲","💰","💸","💵","🧧","🏆","🥇","🥈","🥉","🔥","💥","✨","⭐","🌟","🎉","🎊","⏰","💯","🆗","❌","⭕","❓","❗"]],
+  ["心情與吃喝", ["❤️","🧡","💛","💚","💙","💜","🖤","🤍","💔","💕","💖","💗","💢","💤","💦","☀️","🌙","☕","🍺","🍻","🍜","🍚","🍱","🍡","🍵","🚬"]],
+];
+const EMOJI = EMOJI_GROUPS.reduce((a, g) => a.concat(g[1]), []);
+/* 顏文字。參考圖裡有一整片，這種在牌桌上比表情還傳神。 */
+const KAOMOJI = [
+  "(๑•̀ㅂ•́)و","(•̀ω•́)","(´･ω･`)","(⌒▽⌒)","(￣▽￣)","(╥﹏╥)","ಠ_ಠ",
+  "(ノ°∀°)ノ","(°□°)╯︵┻━┻","┬─┬ノ( º_ºノ)","(๑>◡<๑)","( ˘•ω•˘ )","orz","囧",
+];
 function paintChat() {
   const box = $("chatlog");
   if (!box) return;
@@ -2322,6 +2382,40 @@ function bindChat() {
   inp.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); send(); } };
   if (q) q.innerHTML = QUICK.map((x) => '<button type="button">' + esc(x) + "</button>").join("");
   if (q) q.querySelectorAll("button").forEach((b, i) => { b.onclick = () => act({ kind: "chat", text: QUICK[i] }); });
+
+  /* 表情符號插在游標位置，不是無腦接在最後面 —— 打到一半想加表情才順手。 */
+  const pal = $("emoji"), eb = $("emoBtn");
+  if (pal && eb) {
+    /* 插在游標位置，不是無腦接在最後面 —— 打到一半想加表情才順手。 */
+    const insert = (ch) => {
+      const a = inp.selectionStart == null ? inp.value.length : inp.selectionStart;
+      const z = inp.selectionEnd == null ? a : inp.selectionEnd;
+      inp.value = inp.value.slice(0, a) + ch + inp.value.slice(z);
+      inp.focus();
+      const p = a + ch.length;
+      try { inp.setSelectionRange(p, p); } catch (e2) {}
+    };
+    pal.innerHTML = "";
+    for (const [name, list] of EMOJI_GROUPS) {
+      const c = document.createElement("div"); c.className = "cat"; c.textContent = name;
+      pal.appendChild(c);
+      for (const ch of list) {
+        const b = document.createElement("button");
+        b.type = "button"; b.textContent = ch; b.title = ch;
+        b.onclick = () => insert(ch);
+        pal.appendChild(b);
+      }
+    }
+    const kc = document.createElement("div"); kc.className = "cat"; kc.textContent = "顏文字";
+    pal.appendChild(kc);
+    for (const ch of KAOMOJI) {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "kao"; b.textContent = ch; b.title = ch;
+      b.onclick = () => insert(ch);
+      pal.appendChild(b);
+    }
+    eb.onclick = () => { pal.classList.toggle("on"); if (pal.classList.contains("on")) inp.focus(); };
+  }
 }
 
 /* ---------- 所有「我要做什麼」都走這裡 ----------
@@ -2707,7 +2801,7 @@ window.__m = {
   cacheStats: () => ({ hit: cacheHit, miss: cacheMiss, size: winCache.size + shCache.size }),
   setFast: (v) => { FAST = v; },
   NET, act, applyAction, seatView, applyView, setAway, resumeSeat, syncSeats, netRecv,
-  pushChat, paintChat, esc, QUICK, renderChips, renderTenpai, waitInfo, tryAutoWin, applyScale, fitBoard,
+  pushChat, paintChat, esc, QUICK, EMOJI, EMOJI_GROUPS, KAOMOJI, renderChips, renderTenpai, waitInfo, tryAutoWin, applyScale, fitBoard,
   SFX, shout, fire, playEvents, chatPing,
   answerClaim, settleClaims, armClaim, myName, setMyName,
   seatOfMe: () => ME, setMe: (v) => { ME = v; },
