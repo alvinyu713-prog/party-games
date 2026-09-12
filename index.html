@@ -170,6 +170,9 @@
 
   /* ── 桌機：盤面限高在一屏內，整頁不出現捲軸 ── */
   @media (min-width: 941px) {
+    /* max-height 只是保底，實際值由 fitCanvas() 量出來後覆寫。
+       寫死 96px 的問題是：標題列一旦換行（名字長、人數多、視窗窄），
+       預留的空間就不夠，整頁被撐高 → 使用者看到的「畫面往下掉、下半部不見」。 */
     #cv {
       width: auto; height: auto;
       max-width: 100%;
@@ -287,9 +290,23 @@ const OPT = {
 let S = null, room = null, myPeer = null, isHost = true, peersCache = [];
 let netMode = "solo";                        // solo | host | guest
 let lastSnap = null, snapPrev = null, snapT = 0;
+/* 兩次快照之間隔多久。用來把權威座標往前外推 —— 沒有這個就不知道
+   「主機說的位置」到底落後多少，也就無法算出「現在應該在哪」。 */
+let lastSnapAt = 0, snapGap = 100;
 let matchOn = false;                         // 這一場是不是真的開打了
 /* rx/ry 是「畫面座標」，跟主機給的權威座標 x/y 分開。
    自己的角色靠本地預測立刻動，其他人的靠補間平滑跟上。 */
+/* 把權威座標依它自己的速度往前外推，得到「現在大概在哪」。
+   主機給的位置天生落後一個來回：直接拿它對齊會邊走邊被往回拽，
+   完全不對齊誤差又會一路累積到硬拉回為止 —— 兩種做法都會「飄」。
+   外推量有上限，免得對方急停時衝過頭穿進牆裡。 */
+function aheadOf(p) {
+  const t = snapGap + 40;                                 // 一個快照間隔再加一點抖動
+  let ox = (p.vpx || 0) * t, oy = (p.vpy || 0) * t;
+  const m = Math.hypot(ox, oy), cap = 0.6;
+  if (m > cap) { ox = ox / m * cap; oy = oy / m * cap; }
+  return [p.x + ox, p.y + oy];
+}
 function guestSmooth(dt) {
   if (netMode !== "guest" || !S) return;
   const me = S.players.find((p) => p.peer && p.peer === myPeer);
@@ -298,28 +315,50 @@ function guestSmooth(dt) {
     if (p === me && p.alive && !p.cart) continue;         // 自己另外處理
     // 差太多（重生、被推車傳送）就直接跳，不要慢慢滑過去
     if (Math.abs(p.x - p.rx) > 1.5 || Math.abs(p.y - p.ry) > 1.5) { p.rx = p.x; p.ry = p.y; continue; }
+    const [tx, ty] = aheadOf(p);
     const k = 1 - Math.pow(0.0015, dt / 1000);            // 約 60ms 收斂大半
-    p.rx += (p.x - p.rx) * k;
-    p.ry += (p.y - p.ry) * k;
+    p.rx += (tx - p.rx) * k;
+    p.ry += (ty - p.ry) * k;
   }
   if (!me || !me.alive || me.cart) { if (me) { me.rx = me.x; me.ry = me.y; } return; }
   // 自己的角色：拿本地輸入先走，手感就跟單機一樣即時
   const ghost = { ...me, x: me.rx, y: me.ry };
   movePlayer(S, ghost, myInput.dx, myInput.dy, dt);
   me.rx = ghost.x; me.ry = ghost.y; me.dir = ghost.dir;
-  /* 校正的時機很關鍵。舊版每一幀都往主機的座標拉一點，
-     但主機的座標本來就落後一個來回 —— 等於一邊往前走一邊被往後拽，
-     看起來就是「一直在飄」。改成：走的時候純預測不校正，
-     停下來才對齊；差太多才硬拉回去。 */
-  const ex = me.x - me.rx, ey = me.y - me.ry;
+  /* 對齊的目標是「外推後的權威座標」，不是落後的原始值，所以走路時
+     也可以持續小幅修正而不會被往回拽。門檻從 1.2 格收到 0.65 格 ——
+     實測舊設定會一路飄到 1.128 格才突然跳回去，那一跳就是使用者說的飄移。 */
+  const [tx, ty] = aheadOf(me);
+  const ex = tx - me.rx, ey = ty - me.ry;
   const err = Math.hypot(ex, ey);
-  const moving = !!(myInput.dx || myInput.dy);
-  if (err > 1.2) { me.rx = me.x; me.ry = me.y; }
-  else if (!moving && err > 0.02) {
-    const k2 = 1 - Math.pow(0.02, dt / 1000);
+  if (err > 0.65) { me.rx = tx; me.ry = ty; }
+  else if (err > 0.01) {
+    const moving = !!(myInput.dx || myInput.dy);
+    const k2 = 1 - Math.pow(moving ? 0.25 : 0.02, dt / 1000);
     me.rx += ex * k2; me.ry += ey * k2;
   }
 }
+/* 量出畫布上方實際被佔掉多少，再決定它能有多高。
+   標題列會不會換行、瀏覽器書籤列佔多少，都只有量了才知道。 */
+function fitCanvas() {
+  const cv = document.getElementById("cv");
+  if (!cv) return;
+  const stage = cv.parentElement;
+  if (!stage) return;
+  if (innerWidth < 941) { cv.style.maxHeight = ""; return; }   // 窄版是單欄，交給 CSS
+  const r = stage.getBoundingClientRect();
+  const cs = getComputedStyle(stage);
+  const inner = parseFloat(cs.paddingTop || 0) + parseFloat(cs.paddingBottom || 0);
+  const bodyPad = parseFloat(getComputedStyle(document.body).paddingBottom || 0);
+  const room = innerHeight - r.top - inner - bodyPad - 4;
+  cv.style.maxHeight = Math.max(220, Math.floor(room)) + "px";
+}
+let fitCvT = null;
+addEventListener("resize", () => { clearTimeout(fitCvT); fitCvT = setTimeout(fitCanvas, 60); });
+addEventListener("load", fitCanvas);
+// 標題列的文字會隨人數與名字變動，變動後要重量一次
+setInterval(fitCanvas, 1500);
+
 // 主機／單機沒有延遲問題，畫面座標就是真值
 function syncRender() {
   if (!S) return;
@@ -1002,6 +1041,11 @@ function packSnapshot(g) {
 }
 function applySnapshot(s) {
   if (!s || !s.m) return;
+  {
+    const tNow = performance.now();
+    if (lastSnapAt) snapGap = Math.max(20, Math.min(500, tNow - lastSnapAt));
+    lastSnapAt = tNow;
+  }
   if (!S) S = newRound(false);
   const newRoundNo = S.round !== s.r;
   const g = S;
@@ -1029,6 +1073,9 @@ function applySnapshot(s) {
     p.skull = a[8] >= 0 ? SKULLS[a[8]].k : null;
     p.cart = a[9] ? (p.cart || { side: 0, pos: 0, t: 0 }) : null;
     p.wins = a[10]; p.coins = a[11]; p.invuln = a[12] ? 1 : 0;
+    // 每毫秒走幾格，給外推用
+    p.vpx = (p.x - p.px) / snapGap;
+    p.vpy = (p.y - p.py) / snapGap;
     const f = a[13];
     p.kick = f & 1; p.punch = (f >> 1) & 1; p.throwx = (f >> 2) & 1;
     p.remote = (f >> 3) & 1; p.pierce = (f >> 4) & 1; p.line = (f >> 5) & 1;
