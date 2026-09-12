@@ -1342,6 +1342,24 @@ function pullState() {
 /* ============================================================
    繪圖
    ============================================================ */
+/* ctx.roundRect 是比較新的 API（Chrome 99+／Safari 16.4+／Firefox 112+）。
+   舊瀏覽器沒有它，這裡每一幀會丟十幾次例外；loop() 的 try/catch 會把例外吞掉
+   讓遊戲繼續跑，但中途被跳過的 ctx.restore() 會讓位移永久殘留 ——
+   畫面就一幀一幀往下掉。補上 polyfill，順便讓舊瀏覽器也畫得出來。 */
+if (typeof CanvasRenderingContext2D !== "undefined" &&
+    !CanvasRenderingContext2D.prototype.roundRect) {
+  CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
+    let rr = Array.isArray(r) ? (r[0] || 0) : (typeof r === "number" ? r : 0);
+    rr = Math.min(Math.abs(rr), Math.abs(w) / 2, Math.abs(h) / 2);
+    this.moveTo(x + rr, y);
+    this.arcTo(x + w, y, x + w, y + h, rr);
+    this.arcTo(x + w, y + h, x, y + h, rr);
+    this.arcTo(x, y + h, x, y, rr);
+    this.arcTo(x, y, x + w, y, rr);
+    this.closePath();
+    return this;
+  };
+}
 function roundRect(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
 function drawBomberman(ctx, c, x, y, s, dir, opts = {}) {
   // 規格：2 頭身、白色面罩、黑長橢圓眼、頭頂天線＋圓球、巨型腰帶扣、球形手、扁圓鞋
@@ -1532,6 +1550,12 @@ function drawFire(gs, x, y, t) {
 }
 function draw() {
   const g = S;
+  /* 每一幀都把變換矩陣歸零重設。
+     原本是靠 save/restore 一定配對來維持，但只要繪圖中途丟出例外，
+     restore 就會被跳過，殘留的位移會一幀一幀疊上去，畫面一路往下掉。
+     重設之後不管上一幀發生什麼事，這一幀都是乾淨的起點。 */
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.scale(cv.width / VW, cv.width / VW);
   ctx.clearRect(0, 0, VW, VH);
   ctx.fillStyle = "#0d1117"; ctx.fillRect(0, 0, VW, VH);
   ctx.save(); ctx.translate(0, TS);
@@ -1861,7 +1885,18 @@ function loop(t) {
     draw();
     sideT += dt;
     if (sideT > 200) { sideT = 0; renderSide(); }
-  } catch (e) { console.error("[bomber]", e); }
+  } catch (e) {
+    /* 原本只 console.error，玩的人根本不會發現。
+       畫面一旦有異狀，至少要在網頁上留一行看得到的訊息。 */
+    console.error("[bomber]", e);
+    if (!window.__drawErr) {
+      window.__drawErr = String((e && e.message) || e);
+      try {
+        const el = document.getElementById("netTxt");
+        if (el) el.textContent = "繪圖發生錯誤：" + window.__drawErr.slice(0, 40);
+      } catch (e2) {}
+    }
+  }
   requestAnimationFrame(loop);
 }
 
