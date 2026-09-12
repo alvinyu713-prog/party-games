@@ -22,6 +22,8 @@
     --good:#5fb37a; --warn:#d9a441; --bad:#cf5b48;
     --shadow:0 14px 34px rgba(0,0,0,.45);
   --netok:#5fb37a; --netwait:#9db3a8;
+  --ts:1;            /* 牌桌牌面縮放，由「牌面大小」滑桿控制 */
+  --th:1.25;         /* 自己手牌的額外倍率，由「手牌大小」滑桿控制 */
   }
   *{box-sizing:border-box;}
   body{
@@ -42,6 +44,18 @@
   .row{display:grid; grid-template-columns:minmax(0,1fr) 286px; gap:10px; align-items:start;}
   @media (max-width:1080px){ .row{grid-template-columns:1fr;} }
 
+  /* 牌桌是固定尺寸排出來的，牌一放大就會超出螢幕高度。
+     這一層負責把整張桌子等比縮到塞得進一屏，寧可縮小也不要讓人捲來捲去。 */
+  .boardfit{display:flex; justify-content:center;}
+  /* 自己的手牌刻意放在縮放區外面：牌桌可以為了塞進螢幕縮小，
+     但自己要看的那十七張永遠維持全尺寸，這才是最常盯著的東西。 */
+  .myzone{
+    display:flex; flex-direction:column; align-items:center; gap:6px;
+    padding:10px 8px 4px; margin-top:6px;
+    background:linear-gradient(180deg, rgba(0,0,0,.22), rgba(0,0,0,.05));
+    border-radius:14px; border:1px solid rgba(216,180,90,.18);
+  }
+  .boardfit > .board{transform-origin:top center;}
   .board{
     position:relative; border-radius:16px; padding:12px;
     background:radial-gradient(880px 500px at 50% 40%, #28705f, var(--felt) 30%, var(--felt-2) 74%, var(--felt-3));
@@ -66,7 +80,14 @@
   .t.pick{cursor:pointer; transition:transform .1s, box-shadow .1s;}
   .t.pick:hover{transform:translateY(-9px); box-shadow:0 10px 14px rgba(0,0,0,.45);}
   .t.sel{transform:translateY(-13px); box-shadow:0 12px 16px rgba(0,0,0,.5), 0 0 0 2px var(--gold);}
-  .t.just{box-shadow:0 2px 0 #b7a882, 0 3px 5px rgba(0,0,0,.4), 0 0 0 2px var(--gold), 0 0 14px rgba(216,180,90,.55);}
+  .t.just{box-shadow:0 2px 0 #b7a882, 0 3px 5px rgba(0,0,0,.4), 0 0 0 3px var(--gold), 0 0 18px rgba(216,180,90,.7);}
+  /* 剛打出來的那張會一直脈動，掃一眼就知道最新的是哪張 */
+  .pond .t.just{animation:justPulse 1.15s ease-in-out infinite;}
+  @keyframes justPulse{
+    0%,100%{box-shadow:0 2px 0 #b7a882, 0 3px 5px rgba(0,0,0,.4), 0 0 0 3px var(--gold), 0 0 14px rgba(216,180,90,.5);}
+    50%{box-shadow:0 2px 0 #b7a882, 0 3px 5px rgba(0,0,0,.4), 0 0 0 5px var(--gold), 0 0 26px rgba(216,180,90,.95);}
+  }
+  @media (prefers-reduced-motion:reduce){ .pond .t.just{animation:none;} }
   .t.taken{opacity:.42; filter:saturate(.5);}
   .t.hint{box-shadow:0 2px 0 #b7a882, 0 3px 5px rgba(0,0,0,.4), 0 0 0 2px var(--good);}
   .t .mark{
@@ -75,16 +96,16 @@
   }
   .t.taken{opacity:.5; filter:saturate(.55);}
   .t.taken .mark{background:rgba(120,60,20,.9); color:#ffe0a8;}
-  .t.h{width:48px; height:66px;}
-  .t.m{width:32px; height:44px;}
-  .t.s{width:30px; height:41px; box-shadow:0 2px 0 #b7a882, 0 4px 7px rgba(0,0,0,.5);}
-  .t.xs{width:17px; height:24px;}
+  .t.h{width:calc(58px * var(--th)); height:calc(80px * var(--th));}
+  .t.m{width:calc(40px * var(--ts)); height:calc(55px * var(--ts));}
+  .t.s{width:calc(40px * var(--ts)); height:calc(55px * var(--ts)); box-shadow:0 2px 0 #b7a882, 0 4px 7px rgba(0,0,0,.5);}
+  .t.xs{width:calc(21px * var(--ts)); height:calc(29px * var(--ts));}
   .t.side{width:44px; height:32px;}
 
   /* ---------- 桌面格局 ---------- */
   .grid{
     display:grid; gap:8px; align-items:center; justify-items:center;
-    grid-template-columns:150px minmax(0,1fr) 150px;
+    grid-template-columns:calc(200px * var(--ts)) minmax(0,1fr) calc(200px * var(--ts));
     grid-template-rows:auto auto auto;
   }
   .pond{
@@ -92,21 +113,31 @@
     background:linear-gradient(180deg, rgba(0,0,0,.14), rgba(0,0,0,.06));
     border:1px solid rgba(216,180,90,.10);
     box-shadow:inset 0 1px 4px rgba(0,0,0,.18);
-    grid-template-columns:repeat(6, 30px);
-    height:137px; align-content:start; overflow-y:auto; overscroll-behavior:contain;
+    grid-template-columns:repeat(6, calc(40px * var(--ts)));
+    height:calc(124px * var(--ts)); align-content:start; overflow-y:auto; overscroll-behavior:contain;
   }
-  .pond.v{grid-template-columns:repeat(4, 30px); height:185px;}
+  .pond.v{grid-template-columns:repeat(4, calc(40px * var(--ts))); height:calc(168px * var(--ts));}
   .pond::-webkit-scrollbar{width:6px;}
   .pond::-webkit-scrollbar-thumb{background:rgba(216,180,90,.3); border-radius:3px;}
   .pond.turn{border-color:var(--gold); box-shadow:0 0 0 1px var(--gold), 0 0 20px rgba(216,180,90,.2);}
   .center{
     display:flex; flex-direction:column; align-items:center; gap:5px; padding:10px 16px;
     border-radius:12px; background:rgba(0,0,0,.3); border:1px solid rgba(216,180,90,.22);
-    width:200px; justify-content:center;
+    width:210px; justify-content:center;
   }
   .center .wind{font-family:"Noto Serif TC",serif; font-size:32px; font-weight:900; color:var(--gold); line-height:1;}
   .center .sub{font-size:11px; color:var(--silk-dim);}
   .center .left{font-family:"Chivo Mono",monospace; font-size:20px; color:var(--silk);}
+  /* 牌河裡的牌再大也可能一閃而過，中央固定留一格顯示「剛剛打出的是什麼」，
+     而且會一直留到下一張打出來為止，來不及看也不要緊。 */
+  .center .lastout{
+    margin-top:8px; padding-top:9px; border-top:1px dashed rgba(216,180,90,.3);
+    display:flex; flex-direction:column; align-items:center; gap:4px; width:100%;
+  }
+  .center .lastout .cap{font-size:10.5px; letter-spacing:.12em; color:var(--silk-dim);}
+  .center .lastout .t{width:calc(52px * var(--ts)) !important; height:calc(72px * var(--ts)) !important;}
+  .center .lastout .by{font-size:12px; color:var(--silk); font-weight:700;}
+  .center .lastout .by i{font-style:normal; color:var(--gold);}
 
   .who{
     display:flex; align-items:center; gap:7px; font-size:11.5px; color:var(--silk-dim);
@@ -118,24 +149,24 @@
   .who .dl{color:var(--warn); font-weight:700;}
   .melds{display:flex; gap:5px; flex-wrap:wrap; justify-content:center;}
   /* 疊太密會變成一條綠色長條看不出是牌，留 6px 讓每張的邊露出來 */
-  .backs{display:flex; justify-content:center; flex-wrap:wrap; max-width:150px;}
+  .backs{display:flex; justify-content:center; flex-wrap:wrap; max-width:calc(200px * var(--ts));}
   .backs .t{margin-left:-6px; box-shadow:-1px 2px 4px rgba(0,0,0,.45);}
   .backs .t:first-child{margin-left:0;}
-  .backs.wide{max-width:340px;}
+  .backs.wide{max-width:calc(420px * var(--ts));}
   .meld{display:flex; gap:1px; padding:2px; border-radius:5px; background:rgba(216,180,90,.1);}
   .flowers{display:flex; gap:2px; flex-wrap:wrap;}
 
   /* 注意：牌的類別是 .t，座位方位不能再用 t/l/r 當修飾詞，
      否則 class="seat t" 會同時吃到 .t 的牌面樣式（實測整個座位變成象牙色方塊）。 */
   .seat{display:flex; flex-direction:column; align-items:center; gap:5px;}
-  .seat.side-l,.seat.side-r{max-width:150px;}
+  .seat.side-l,.seat.side-r{max-width:calc(200px * var(--ts));}
   /* 吃碰槓出現時這一條會從無到有，桌面就跟著跳。先把位子留好。 */
   .melds{min-height:34px; align-items:flex-start;}
   .seat .backs{min-height:32px;}
 
   .myhand{
-    margin-top:12px; display:flex; align-items:flex-end; gap:4px; flex-wrap:wrap;
-    justify-content:center; min-height:72px;
+    margin-top:12px; display:flex; align-items:flex-end; gap:5px; flex-wrap:wrap;
+    justify-content:center; min-height:calc(86px * var(--th));
   }
   .myhand .gap{width:14px;}
   .mymelds{display:flex; gap:6px; justify-content:center; flex-wrap:wrap; margin-top:7px; min-height:34px;}
@@ -235,6 +266,63 @@
     background:rgba(216,180,90,.18); color:var(--gold);}
   .nethint{font-size:11.5px; line-height:1.7; color:var(--silk-dim);}
   .nethint b{color:var(--silk);}
+  /* ── 吃碰槓胡的大字 ──
+     蓋滿整個視窗置中，底下壓一層深色光暈把牌桌壓下去，
+     不然金字疊在綠底牌桌上會糊成一片。全程不吃點擊。
+     用 fixed 而不是 absolute：這一塊是 .board 的兄弟節點，
+     absolute 會去找最近的已定位祖先，捲動之後就跑位。 */
+  .shout{
+    position:fixed; inset:0; z-index:60; pointer-events:none;
+    display:grid; place-content:center; justify-items:center;
+    gap:clamp(12px,2.4vw,28px);
+    background:radial-gradient(closest-side at 50% 47%,
+      rgba(3,14,11,.86), rgba(3,14,11,.62) 52%, rgba(3,14,11,0) 82%);
+    animation:shoutBg .22s ease-out both;
+  }
+  .shout[hidden]{display:none;}
+  @keyframes shoutBg{from{opacity:0;}to{opacity:1;}}
+  .shout .w{
+    font-family:"Noto Serif TC",serif; font-weight:900; line-height:.92;
+    font-size:clamp(110px,26vw,340px); letter-spacing:.06em;
+    color:var(--gold);
+    -webkit-text-stroke:clamp(3px,.6vw,8px) rgba(0,0,0,.62); paint-order:stroke fill;
+    text-shadow:0 10px 0 rgba(0,0,0,.42), 0 0 80px rgba(216,180,90,.95), 0 0 170px rgba(216,180,90,.55);
+    animation:shoutIn .5s cubic-bezier(.15,1.55,.4,1) both;
+  }
+  .shout .row{display:flex; align-items:center; gap:clamp(14px,3.4vw,44px);}
+  /* 吃碰胡一定要看得到「是哪一張」，不然只知道有人碰了卻不知道碰什麼 */
+  .shout .row .t{
+    width:clamp(96px,19vw,200px) !important; height:auto !important; aspect-ratio:36/50; border-radius:9px;
+    animation:shoutIn .5s .09s cubic-bezier(.15,1.55,.4,1) both;
+    box-shadow:0 14px 40px rgba(0,0,0,.75), 0 0 0 4px var(--gold), 0 0 60px rgba(216,180,90,.6);
+  }
+  .shout .who{
+    font-size:clamp(20px,4.2vw,40px); font-weight:900; color:var(--silk); text-align:center;
+    background:rgba(0,0,0,.6); border:2px solid rgba(216,180,90,.5);
+    padding:.3em 1em; border-radius:99px; line-height:1.35;
+    text-shadow:0 2px 8px rgba(0,0,0,.9);
+    animation:shoutIn .5s .05s cubic-bezier(.15,1.55,.4,1) both;
+  }
+  .shout .who i{font-style:normal; color:var(--gold);}
+  .shout.hu .w{
+    color:#ff7a5c;
+    text-shadow:0 10px 0 rgba(0,0,0,.45), 0 0 90px rgba(255,110,80,1), 0 0 190px rgba(255,110,80,.6);
+  }
+  .shout.hu{background:radial-gradient(closest-side at 50% 47%,
+    rgba(26,4,2,.88), rgba(20,4,2,.65) 52%, rgba(20,4,2,0) 82%);}
+  .shout.kong .w{color:#9ad8ff; text-shadow:0 10px 0 rgba(0,0,0,.45), 0 0 80px rgba(120,200,255,.9);}
+  .shout.chow .w{color:#9cebb8; text-shadow:0 10px 0 rgba(0,0,0,.45), 0 0 80px rgba(120,235,170,.85);}
+  @keyframes shoutIn{
+    0%{opacity:0; transform:scale(.34) rotate(-9deg);}
+    58%{opacity:1; transform:scale(1.16) rotate(2.5deg);}
+    100%{opacity:1; transform:scale(1) rotate(0);}
+  }
+  .shout.out{animation:shoutOut .34s ease-in both;}
+  @keyframes shoutOut{to{opacity:0; transform:scale(1.28);}}
+  @media (prefers-reduced-motion:reduce){
+    .shout,.shout .w,.shout .who,.shout .row .t{animation:none;}
+    .shout.out{animation:none; opacity:0;}
+  }
   .tenhead{display:flex; align-items:baseline; gap:7px; flex-wrap:wrap; margin-bottom:7px;}
   .tenhead b{font-size:14px;}
   .tenhead b.on{color:var(--good);}
@@ -315,7 +403,9 @@
 
   <div class="row">
     <div>
-      <div class="board" id="board"></div>
+      <div class="boardfit" id="boardfit"><div class="board" id="board"></div></div>
+      <div class="myzone" id="myzone"></div>
+      <div class="shout" id="shout" hidden></div>
       <div class="acts" id="acts"></div>
     </div>
     <div class="side">
@@ -403,22 +493,33 @@ const DOT_POS = [
   [[8.5, 11, 5.2], [18, 11, 5.2], [27.5, 11, 5.2], [8.5, 25, 5.2], [18, 25, 5.2], [27.5, 25, 5.2],
    [8.5, 39, 5.2], [18, 39, 5.2], [27.5, 39, 5.2]],
 ];
-function stickG(cx, cy, h, c) {
+/* rot 是傾斜角度（度）。八索傳統上是斜著交錯排成 W 字，
+   原本只畫得出直立的竹節，所以那張牌一直長得不像。 */
+function stickG(cx, cy, h, c, rot) {
   const w = 4.6;
-  return `<rect x="${cx - w / 2}" y="${cy - h / 2}" width="${w}" height="${h}" rx="${w / 2}" fill="${c}"/>` +
-         `<rect x="${cx - w / 2 - .9}" y="${cy - 1.5}" width="${w + 1.8}" height="3" rx="1.5" fill="${c}" opacity=".85"/>`;
+  const body =
+    `<rect x="${cx - w / 2}" y="${cy - h / 2}" width="${w}" height="${h}" rx="${w / 2}" fill="${c}"/>` +
+    `<rect x="${cx - w / 2 - .9}" y="${cy - 1.5}" width="${w + 1.8}" height="3" rx="1.5" fill="${c}" opacity=".85"/>`;
+  return rot ? `<g transform="rotate(${rot} ${cx} ${cy})">${body}</g>` : body;
 }
+/* 索引 = 牌面數字 − 1（一索是雀鳥，不走這張表）。
+   每一筆是 [x, y, 長度, 傾斜角度?]。
+   修過兩處：
+   八索原本只列了 7 根（少一根），而且下排 x 是 13/23/8.5/27.5 間距亂掉；
+   照傳統畫法改成八根斜著交錯排成 W 字。
+   三索原本三根並排擠在正中央 y=25，上下留一大片空白；改成上一下二的品字形。 */
 const STICK_POS = [
   null,
-  [[18, 14, 14], [18, 36, 14]],
-  [[9, 25, 15], [18, 25, 15], [27, 25, 15]],
-  [[11, 14, 13], [25, 14, 13], [11, 37, 13], [25, 37, 13]],
-  [[10, 12, 12], [26, 12, 12], [18, 25, 12], [10, 38, 12], [26, 38, 12]],
-  [[8.5, 14, 13], [18, 14, 13], [27.5, 14, 13], [8.5, 37, 13], [18, 37, 13], [27.5, 37, 13]],
-  [[18, 9, 11], [8.5, 26, 11], [18, 26, 11], [27.5, 26, 11], [8.5, 41, 11], [18, 41, 11], [27.5, 41, 11]],
-  [[8.5, 13, 12], [18, 13, 12], [27.5, 13, 12], [13, 38, 12], [23, 38, 12], [8.5, 38, 12], [27.5, 38, 12]],
+  [[18, 14, 14], [18, 36, 14]],                                          // 二索
+  [[18, 13, 14], [11, 37, 14], [25, 37, 14]],                            // 三索：上一下二
+  [[11, 14, 13], [25, 14, 13], [11, 37, 13], [25, 37, 13]],              // 四索
+  [[10, 12, 12], [26, 12, 12], [18, 25, 12], [10, 38, 12], [26, 38, 12]], // 五索：四角＋中間
+  [[8.5, 14, 13], [18, 14, 13], [27.5, 14, 13], [8.5, 37, 13], [18, 37, 13], [27.5, 37, 13]],   // 六索
+  [[18, 9, 11], [8.5, 26, 11], [18, 26, 11], [27.5, 26, 11], [8.5, 41, 11], [18, 41, 11], [27.5, 41, 11]], // 七索
+  [[8, 14, 13, -15], [14.7, 14, 13, 15], [21.3, 14, 13, -15], [28, 14, 13, 15],
+   [8, 37, 13, -15], [14.7, 37, 13, 15], [21.3, 37, 13, -15], [28, 37, 13, 15]],   // 八索：斜排 W 字，八根
   [[8.5, 11, 11], [18, 11, 11], [27.5, 11, 11], [8.5, 25, 11], [18, 25, 11], [27.5, 25, 11],
-   [8.5, 39, 11], [18, 39, 11], [27.5, 39, 11]],
+   [8.5, 39, 11], [18, 39, 11], [27.5, 39, 11]],                         // 九索
 ];
 const BIRD = `
   <g>
@@ -462,12 +563,12 @@ function faceSVG(t) {
   }
   if (n === 0) return open + BIRD + `</svg>`;
   const pos = STICK_POS[n];
-  const body = pos.map(([x, y, h], i) => {
+  const body = pos.map(([x, y, h, rot], i) => {
     let c = "#2f7d4f";
     if (n === 4 && i === 2) c = "#b3372c";
     if (n === 6 && i === 0) c = "#b3372c";
     if (n === 8 && i % 2 === 1) c = "#b3372c";
-    return stickG(x, y, h, c);
+    return stickG(x, y, h, c, rot);
   }).join("");
   return open + body + `</svg>`;
 }
@@ -747,7 +848,15 @@ const OPT = {
   mode: 1,            // 0 單局 1 一圈 2 一將
   thinkMin: 1500, thinkMax: 4200,          // 電腦的思考時間（原本 500/1400，拉長三倍）
   claimMs: 9000,      // 你可以考慮吃碰槓的時間（原本 3000，拉長三倍；0 = 不限時）
+  sound: 1,           // 遊戲音效（打牌、吃碰槓胡、提示）
+  vol: 0.6,           // 音效音量
+  music: 1,           // 背景音樂（同樣是當場合成，沒有外部音檔）
+  musicVol: 0.22,     // 音樂音量。預設壓低，不然會蓋掉喊牌的音效
+  voice: 1,           // 語音報牌（用瀏覽器內建的語音合成，不需要外部音檔）
+  shout: 1,           // 吃碰槓胡的大字提示
   autoWin: 1,         // 聽牌後胡牌的那張一出現就自動胡，不必趕著按
+  tileScale: 1,       // 牌桌上的牌面大小
+  handScale: 1.25,    // 自己手牌的額外倍率。手牌在縮放區外，放大不會擠到牌桌
   chips0: 0,          // 起始籌碼。輸到負的不會停，麻將本來就是欠著記帳
   afkMs: 45000,       // 連線時多久沒動作就幫他打這一手（0 = 不限）
   showHands: 0,       // 是否掀開電腦的手牌（觀戰／除錯）
@@ -795,6 +904,7 @@ const S = {
   logs: [],                              // 牌局紀錄的文字，客端靠這個顯示
   chat: [],                              // 聊天訊息 {n 名字, t 內容, s 座位}
   lastPay: null,                         // 上一局每家的輸贏，籌碼面板拿來顯示增減
+  evt: [],                               // 事件流（誰碰誰胡），客端靠它播音效與大字
   claim: null,                           // 吃碰槓胡的徵詢（可能同時有好幾個真人要回答）
 };
 /* ME = 我坐第幾席。單機永遠是 0；連線時由房主指派，畫面會轉成「我一律在下方」。 */
@@ -880,6 +990,7 @@ function startTurn(seat, isDeal) {
     }
   }
   S.phase = "discard";
+  fire("draw", seat, {});
   render();
   if (!isAI(seat)) {
     // 自摸？暗槓？
@@ -918,6 +1029,7 @@ function discard(seat, tile, fromDrawn) {
   S.visible[tile]++;
   S.lastDiscard = tile; S.lastFrom = seat;
   S.byKong = false;
+  fire("discard", seat, { tile });
   log(`${seat === 0 ? "🧑" : "🀫"} ${seatName(seat)} 打 <b>${tileName(tile)}</b>${fromDrawn ? "（摸打）" : ""}`);
   render();
   resolveClaims(tile, seat);
@@ -1018,11 +1130,13 @@ function finishClaims(claims, tile, from) {
     take(tile, 2);
     S.melds[w.seat].push({ kind: "pung", tiles: [tile, tile, tile], from, concealed: false });
     S.visible[tile] += 2;
+    fire("pung", w.seat, { tile, from });
     log(`🀄 <b>${seatName(w.seat)}</b> 碰 ${tileName(tile)}`);
   } else if (p.type === "kong") {
     take(tile, 3);
     S.melds[w.seat].push({ kind: "kong", tiles: [tile, tile, tile, tile], from, concealed: false });
     S.visible[tile] += 3;
+    fire("kong", w.seat, { tile, from });
     log(`🀄 <b>${seatName(w.seat)}</b> 明槓 ${tileName(tile)}`);
     kongDraw(w.seat); return;
   } else if (p.type === "chow") {
@@ -1030,6 +1144,7 @@ function finishClaims(claims, tile, from) {
     const tiles = [...p.with, tile].sort((a, b) => a - b);
     S.melds[w.seat].push({ kind: "chow", tiles, from, concealed: false });
     for (const t of p.with) S.visible[t]++;
+    fire("chow", w.seat, { tile, from });
     log(`🀄 <b>${seatName(w.seat)}</b> 吃 ${tiles.map(tileName).join("")}`);
   }
   sortHand(w.seat);
@@ -1066,6 +1181,7 @@ function doAnkong(seat, tile) {
   S.hands[seat] = rest; S.drawn = null;
   S.melds[seat].push({ kind: "kong", tiles: [tile, tile, tile, tile], from: seat, concealed: true });
   S.visible[tile] = 4;
+  fire("ankong", seat, { tile });
   log(`🀄 <b>${seatName(seat)}</b> 暗槓 ${tileName(tile)}`);
   sortHand(seat);
   kongDraw(seat);
@@ -1079,6 +1195,7 @@ function doAddKong(seat, tile) {
   const m = S.melds[seat].find((x) => x.kind === "pung" && x.tiles[0] === tile);
   if (m) { m.kind = "kong"; m.tiles = [tile, tile, tile, tile]; }
   S.visible[tile]++;
+  fire("kong", seat, { tile, from: seat });
   log(`🀄 <b>${seatName(seat)}</b> 加槓 ${tileName(tile)}`);
   // 搶槓：別人正好胡這張
   for (let s = 0; s < 4; s++) {
@@ -1124,6 +1241,7 @@ function declareWin(seat, tile, selfDraw, from, robKong) {
   for (let i = 0; i < 4; i++) S.scores[i] += pay[i];
   S.lastPay = pay.slice();
   S.result = { seat, tile, selfDraw, from, sc, amount, rake, net, pay, tiles: [...tiles].sort((a, b) => a - b) };
+  fire(selfDraw ? "tsumo" : "hu", seat, { tile, tai: sc.total, from });
   log(`🏆 <b>${seatName(seat)}</b> ${selfDraw ? "自摸" : "胡 " + seatName(from) + " 的"} ${tileName(tile)}　` +
       `<b>${sc.total} 台</b>　${sc.tais.map((x) => x.n).join("、")}`);
   render();
@@ -1132,6 +1250,7 @@ function drawGame() {
   S.over = true; S.phase = "over";
   S.result = { draw: true };
   S.lastPay = [0, 0, 0, 0];
+  fire("drawgame", -1, {});
   log("🌊 <b>流局</b>　牌摸完了，沒有人胡");
   render();
 }
@@ -1343,7 +1462,7 @@ function seatBlock(seat, cls) {
   if (S.flowers[seat].length) b.appendChild(flowersEl(seat));
   if ((OPT.showHands && NET.mode !== "guest") || S.over) {
     const h = document.createElement("div"); h.className = "melds";
-    h.style.maxWidth = (cls === "side-t") ? "340px" : "150px";
+    h.style.maxWidth = (cls === "side-t") ? "calc(420px * var(--ts))" : "calc(200px * var(--ts))";
     S.hands[seat].forEach((t) => h.appendChild(tileEl(t, { size: "xs" })));
     b.appendChild(h);
   } else {
@@ -1379,11 +1498,23 @@ function render() {
     <div class="sub">${WINDS[S.roundWind]}圈 第 ${S.hand} 局・莊 ${seatName(S.dealer)}</div>
     <div class="left">剩 ${S.wall.length}</div>
     <div class="sub">${S.over ? "本局結束" : seatName(S.turn) + " 的回合"}</div>`;
+  // 剛剛打出的那一張，放大顯示在正中央
+  if (S.lastDiscard !== null && S.lastDiscard !== undefined && S.lastFrom >= 0 && !S.over) {
+    const lo = document.createElement("div"); lo.className = "lastout";
+    const cap = document.createElement("div"); cap.className = "cap"; cap.textContent = "剛剛打出";
+    lo.appendChild(cap);
+    lo.appendChild(tileEl(S.lastDiscard, { size: "h" }));
+    const by = document.createElement("div"); by.className = "by";
+    by.innerHTML = "<i>" + esc(seatName(S.lastFrom)) + "</i> 打的";
+    lo.appendChild(by);
+    c.appendChild(lo);
+  }
   mk("2", "2", c);
   mk("2", "3", pondEl(ME), whoEl(ME));
   B.appendChild(g);
 
-  // 自己的手牌
+  // 自己的手牌：畫到縮放區外的 myzone，不跟著牌桌縮小
+  const MZ = $("myzone"); MZ.innerHTML = "";
   const mh = document.createElement("div"); mh.className = "myhand";
   const myTurn = S.turn === ME && S.phase === "discard" && !S.over && !S.pending && !S.claim;
   const hint = myTurn ? bestDiscardHint() : null;
@@ -1400,17 +1531,20 @@ function render() {
       onclick: myTurn ? () => act({ kind: "discard", tile: S.drawn, fromDrawn: true }) : null,
     }));
   }
-  B.appendChild(mh);
+  MZ.appendChild(mh);
   if (S.melds[ME].length || S.flowers[ME].length) {
     const mm = document.createElement("div"); mm.className = "mymelds";
     if (S.flowers[ME].length) mm.appendChild(flowersEl(ME));
     mm.appendChild(meldsEl(ME, "m"));
-    B.appendChild(mm);
+    MZ.appendChild(mm);
   }
 
   if (S.over) B.appendChild(resultBanner());
   renderActs();
   syncHud();
+  playEvents();
+  chatPing();
+  fitBoard();
   renderNet();
   renderTenpai();
   renderChips();
@@ -1637,6 +1771,36 @@ function renderChips() {
     (OPT.rake ? '／抽水 ' + OPT.rake + '%' : '') + '</span><span>' +
     (OPT.chips0 ? '起始 ' + OPT.chips0 : '從 0 記帳') + '</span></div>';
 }
+function applyScale() {
+  document.documentElement.style.setProperty("--ts", String(OPT.tileScale || 1));
+  document.documentElement.style.setProperty("--th", String(OPT.handScale || 1.25));
+  fitBoard();
+}
+/* 量出牌桌的原始尺寸，再算出能塞進目前視窗的倍率。
+   外層容器的高度要跟著設成縮放後的高度，否則下面的按鈕列會被推開一大段空白。 */
+function fitBoard() {
+  const wrap = $("boardfit"), b = $("board");
+  if (!wrap || !b) return;
+  b.style.transform = "none";
+  wrap.style.height = "auto";
+  const nh = b.offsetHeight, nw = b.offsetWidth;
+  if (!nh || !nw) return;
+  const top = wrap.getBoundingClientRect().top + window.scrollY - (document.scrollingElement || document.documentElement).scrollTop;
+  // 底下要留給「自己的手牌區」與動作按鈕，這兩塊不縮放
+  const mz = $("myzone"), ac = $("acts");
+  const reserve = (mz ? mz.offsetHeight : 0) + (ac ? ac.offsetHeight : 0) + 28;
+  const room = window.innerHeight - wrap.getBoundingClientRect().top - reserve;
+  let k = Math.min(1, room / nh);
+  const availW = wrap.clientWidth || nw;
+  if (nw * k > availW) k = availW / nw;
+  /* 下限 0.78：再縮下去桌上的牌會比原本還小，那就本末倒置了。
+     塞不下就讓頁面捲，捲一下總比看不清楚好。 */
+  k = Math.max(0.78, Math.min(1, k));
+  b.style.transform = k < 0.999 ? "scale(" + k.toFixed(4) + ")" : "none";
+  wrap.style.height = Math.round(nh * k) + "px";
+}
+let fitT = null;
+addEventListener("resize", () => { clearTimeout(fitT); fitT = setTimeout(fitBoard, 80); });
 function syncHud() {
   $("hRound").textContent = WINDS[S.roundWind] + " " + S.hand;
   $("hLeft").textContent = S.wall.length;
@@ -1663,11 +1827,23 @@ const PARAMS = [
   { k: "thinkMax", n: "電腦思考上限", min: 0, max: 12000, step: 100, o: OPT, f: (v) => (v / 1000).toFixed(1) + "s" },
   { k: "claimMs", n: "你的吃碰時間", min: 0, max: 30000, step: 1000, o: OPT,
     f: (v) => (v === 0 ? "不限時" : (v / 1000) + "s") },
+  { k: "sound", n: "遊戲音效", seg: ["關", "開"], o: OPT, re: () => { if (OPT.sound) SFX.play("chat"); } },
+  { k: "vol", n: "音效音量", min: 0, max: 1, step: .05, o: OPT,
+    f: (v) => Math.round(v * 100) + "%", re: () => SFX.play("click") },
+  { k: "music", n: "背景音樂", seg: ["關", "開"], o: OPT, re: () => SFX.musicSync() },
+  { k: "musicVol", n: "音樂音量", min: 0, max: 1, step: .05, o: OPT,
+    f: (v) => Math.round(v * 100) + "%", re: () => SFX.musicSync() },
+  { k: "voice", n: "語音報牌", seg: ["關", "開"], o: OPT, re: () => { if (OPT.voice) SFX.say("碰"); } },
+  { k: "shout", n: "大字提示", seg: ["關", "開"], o: OPT },
   { k: "autoWin", n: "自動胡牌", seg: ["關", "開"], o: OPT, re: render },
   { k: "chips0", n: "起始籌碼", min: 0, max: 50000, step: 500, o: OPT,
     f: (v) => (v === 0 ? "從 0 記帳" : v + ""), re: () => renderChips() },
   { k: "afkMs", n: "代打等待", min: 0, max: 120000, step: 5000, o: OPT,
     f: (v) => (v === 0 ? "不限時" : (v / 1000) + "s") },
+  { k: "tileScale", n: "牌桌牌面", min: .75, max: 1.4, step: .05, o: OPT,
+    f: (v) => Math.round(v * 100) + "%", re: applyScale },
+  { k: "handScale", n: "自己手牌", min: .9, max: 1.8, step: .05, o: OPT,
+    f: (v) => Math.round(v * 100) + "%", re: applyScale },
   { k: "showHands", n: "掀開手牌", seg: ["關", "開"], o: OPT, re: render },
 ];
 const AI_PARAMS = [
@@ -1784,7 +1960,7 @@ function seatView(seat) {
     turn: S.turn, dealer: S.dealer, rw: S.roundWind, hd: S.hand, streak: S.streak,
     scores: S.scores, phase: S.phase, over: S.over, result: S.result,
     wall: S.wall.length, names: S.seatOf, ai: S.seatAI, away: S.away,
-    logs: S.logs, chat: S.chat, lastPay: S.lastPay,
+    logs: S.logs, chat: S.chat, lastPay: S.lastPay, evt: S.evt,
     pending: (S.pending && S.pending.seat === seat) ? { kind: S.pending.kind, opts: S.pending.opts } : null,
     claim: S.claim ? {
       tile: S.claim.tile, from: S.claim.from, until: S.claim.until,
@@ -1808,6 +1984,7 @@ function applyView(v) {
   S.logs = v.logs; paintLog();
   S.chat = v.chat || [];
   S.lastPay = v.lastPay || null;
+  S.evt = v.evt || [];
   S.pending = v.pending ? { seat: v.me, kind: v.pending.kind, opts: v.pending.opts } : null;
   S.claim = v.claim
     ? { tile: v.claim.tile, from: v.claim.from, until: v.claim.until,
@@ -1834,6 +2011,267 @@ NET.push = function () {
     NET.send(p.peer, { t: "v", v });
   }
 };
+
+/* ==================================================================
+   音效與語音
+   全部用 WebAudio 當場合成，沒有任何外部音檔 —— artifact 的 CSP 擋外部
+   音訊，內嵌 data URI 又會讓檔案肥好幾 MB，合成是唯一划算的做法。
+   語音報牌用瀏覽器內建的 speechSynthesis，講中文不需要下載語音包。
+   ================================================================== */
+const SFX = (() => {
+  let AC = null, unlocked = false;
+  function ctx() {
+    if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { AC = 0; } }
+    if (AC && AC.state === "suspended") AC.resume();
+    return AC || null;
+  }
+  // 瀏覽器一律要等使用者互動過才准出聲，所以第一次點擊時解鎖
+  function unlock() {
+    if (unlocked) return;
+    unlocked = true;
+    ctx();
+  }
+  const vol = () => (OPT.sound ? Math.max(0, Math.min(1, OPT.vol)) : 0);
+  function tone(type, f0, dur, amp, f1, delay) {
+    const a = ctx(); if (!a || !vol()) return;
+    const t0 = a.currentTime + (delay || 0);
+    const o = a.createOscillator(), g = a.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(f0, t0);
+    if (f1) o.frequency.exponentialRampToValueAtTime(Math.max(30, f1), t0 + dur);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(Math.max(0.0002, amp * vol()), t0 + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0004, t0 + dur);
+    o.connect(g); g.connect(a.destination);
+    o.start(t0); o.stop(t0 + dur + 0.03);
+  }
+  function noise(dur, amp, cut, sweep, delay) {
+    const a = ctx(); if (!a || !vol()) return;
+    const t0 = a.currentTime + (delay || 0);
+    const len = Math.max(1, Math.floor(a.sampleRate * dur));
+    const buf = a.createBuffer(1, len, a.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+    const s = a.createBufferSource(); s.buffer = buf;
+    const f = a.createBiquadFilter(); f.type = "lowpass";
+    f.frequency.setValueAtTime(cut, t0);
+    if (sweep) f.frequency.exponentialRampToValueAtTime(Math.max(60, sweep), t0 + dur);
+    const g = a.createGain();
+    g.gain.setValueAtTime(amp * vol(), t0);
+    g.gain.exponentialRampToValueAtTime(0.0004, t0 + dur);
+    s.connect(f); f.connect(g); g.connect(a.destination);
+    s.start(t0);
+  }
+  /* 牌撞桌面的聲音：一下短噪音（塑膠殼）＋一個低頻（桌板共鳴）。
+     兩者疊起來才像麻將牌，單用哪一個都像在敲鍵盤。 */
+  const clack = (v, delay) => { noise(0.045, 0.5 * v, 5200, 900, delay); tone("triangle", 210, 0.07, 0.22 * v, 90, delay); };
+  const BANK = {
+    click:  () => clack(1),
+    draw:   () => { noise(0.03, 0.22, 3800, 1200); tone("sine", 320, 0.05, 0.08, 240); },
+    myturn: () => { tone("sine", 660, 0.12, 0.14, 880); tone("sine", 990, 0.16, 0.10, 1180, 0.08); },
+    chat:   () => { tone("sine", 880, 0.09, 0.16, 1100); tone("sine", 1320, 0.12, 0.12, 1500, 0.07); },
+    chow:   () => { clack(1); tone("square", 440, 0.1, 0.12, 520, 0.05); tone("square", 587, 0.14, 0.12, 660, 0.13); },
+    pung:   () => { clack(1.2); tone("square", 523, 0.1, 0.16, 560, 0.04); tone("square", 659, 0.1, 0.16, 700, 0.12);
+                    tone("square", 784, 0.18, 0.18, 820, 0.2); },
+    kong:   () => { clack(1.4); tone("sawtooth", 392, 0.12, 0.15, 420, 0.04); tone("sawtooth", 523, 0.12, 0.15, 560, 0.13);
+                    tone("sawtooth", 659, 0.12, 0.15, 700, 0.22); tone("sine", 130, 0.34, 0.26, 70, 0.3); },
+    hu:     () => { noise(0.5, 0.16, 9000, 2600);
+                    [523, 659, 784, 1047, 1319].forEach((f, i) => tone("triangle", f, 0.34, 0.2, f * 1.01, i * 0.085));
+                    tone("sine", 131, 0.7, 0.24, 110, 0.1); },
+    drawgame: () => { tone("sine", 392, 0.45, 0.16, 180); tone("sine", 294, 0.6, 0.14, 130, 0.16); },
+  };
+  function play(k) {
+    if (!OPT.sound) return;
+    const f = BANK[k];
+    if (f) { try { f(); } catch (e) {} }
+  }
+  /* 語音報牌。周星馳的原聲是電影素材，不能也拿不到，
+     這裡用瀏覽器內建的中文語音合成，把音高語速拉高做出誇張的喊牌感。 */
+  let voices = null;
+  function pickVoice() {
+    if (!window.speechSynthesis) return null;
+    if (!voices || !voices.length) voices = window.speechSynthesis.getVoices();
+    if (!voices || !voices.length) return null;
+    return voices.find((v) => /zh[-_]?(TW|HK)/i.test(v.lang)) ||
+           voices.find((v) => /^zh/i.test(v.lang)) || null;
+  }
+  function say(text, opt) {
+    if (!OPT.voice || !OPT.sound || !window.speechSynthesis || !text) return;
+    try {
+      const u = new SpeechSynthesisUtterance(text);
+      const v = pickVoice();
+      if (v) u.voice = v;
+      u.lang = (v && v.lang) || "zh-TW";
+      u.rate = (opt && opt.rate) || 1.35;      // 講快一點才像喊的
+      u.pitch = (opt && opt.pitch) || 1.5;     // 音高拉高，誇張一點
+      u.volume = Math.max(0, Math.min(1, OPT.vol));
+      window.speechSynthesis.cancel();          // 前一句還沒講完就蓋過去
+      window.speechSynthesis.speak(u);
+    } catch (e) {}
+  }
+  if (window.speechSynthesis) {
+    try { window.speechSynthesis.onvoiceschanged = () => { voices = window.speechSynthesis.getVoices(); }; } catch (e) {}
+  }
+  /* ---------- 背景音樂 ----------
+     一樣是當場合成。五聲音階（宮商角徵羽）配慢速琶音，聽起來輕快不吵，
+     而且完全不佔檔案大小 —— 真的音樂檔動輒好幾 MB，CSP 也擋外部音訊。
+     排程採「提前 0.3 秒排好」的做法，靠 AudioContext 的時間軸而不是
+     setInterval 的觸發時間，分頁在背景被降頻時節奏才不會亂掉。 */
+  let mGain = null, mTimer = null, mNext = 0, mStep = 0, mOn = false;
+  const BPM = 82, EIGHTH = 60 / BPM / 2;
+  const PENT = [0, 2, 4, 7, 9, 12, 14, 16];      // 五聲音階往上兩個八度
+  const PROG = [0, -3, -5, -3];                  // 四小節的根音走向，繞回來很順
+  const hz = (semi) => 261.63 * Math.pow(2, semi / 12);
+  function mVoice(a, f, t0, dur, amp, type) {
+    const o = a.createOscillator(), g = a.createGain();
+    o.type = type || "triangle";
+    o.frequency.setValueAtTime(f, t0);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(Math.max(0.0002, amp), t0 + 0.05);
+    g.gain.exponentialRampToValueAtTime(0.0004, t0 + dur);
+    o.connect(g); g.connect(mGain);
+    o.start(t0); o.stop(t0 + dur + 0.06);
+  }
+  function mSchedule() {
+    const a = ctx(); if (!a || !mGain) return;
+    while (mNext < a.currentTime + 0.35) {
+      const bar = Math.floor(mStep / 8) % PROG.length;
+      const root = PROG[bar];
+      if (mStep % 8 === 0) mVoice(a, hz(root - 12), mNext, 1.7, 0.2, "sine");        // 低音撐著
+      if (mStep % 8 === 4) mVoice(a, hz(root - 5), mNext, 1.1, 0.12, "sine");
+      if (mStep % 2 === 0) {                                                          // 主旋律
+        const idx = (mStep * 3 + bar * 2) % PENT.length;
+        mVoice(a, hz(root + PENT[idx]), mNext, 0.55, 0.12, "triangle");
+      }
+      if (mStep % 4 === 3) {                                                          // 上方點綴
+        const idx = (mStep * 5 + bar) % PENT.length;
+        mVoice(a, hz(root + PENT[idx] + 12), mNext, 0.32, 0.05, "sine");
+      }
+      mNext += EIGHTH; mStep++;
+    }
+  }
+  function musicStart() {
+    const a = ctx(); if (!a || mOn) return;
+    mGain = a.createGain();
+    mGain.gain.value = Math.max(0, Math.min(1, OPT.musicVol));
+    mGain.connect(a.destination);
+    mNext = a.currentTime + 0.15; mStep = 0; mOn = true;
+    mTimer = setInterval(mSchedule, 60);
+    mSchedule();
+  }
+  function musicStop() {
+    if (mTimer) clearInterval(mTimer);
+    mTimer = null; mOn = false;
+    if (mGain) {
+      const a = ctx();
+      try {
+        mGain.gain.setValueAtTime(mGain.gain.value, a.currentTime);
+        mGain.gain.exponentialRampToValueAtTime(0.0002, a.currentTime + 0.35);
+      } catch (e) {}
+      const g = mGain; mGain = null;
+      setTimeout(() => { try { g.disconnect(); } catch (e) {} }, 600);
+    }
+  }
+  // 設定改了就跟著走；音量可以即時調，不用重開
+  function musicSync() {
+    if (!unlocked) return;                    // 還沒互動過，瀏覽器不准出聲
+    if (OPT.music && OPT.musicVol > 0) {
+      if (!mOn) musicStart();
+      else if (mGain) mGain.gain.value = Math.max(0, Math.min(1, OPT.musicVol));
+    } else if (mOn) musicStop();
+  }
+  // 分頁切走就停，回來再開 —— 背景一直放會很擾人
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) { if (mOn) musicStop(); }
+    else musicSync();
+  });
+  function unlockAll() { unlock(); musicSync(); }
+  addEventListener("pointerdown", unlockAll, { once: true, capture: true });
+  addEventListener("keydown", unlockAll, { once: true, capture: true });
+  return { play, say, unlock: unlockAll, musicSync, musicPlaying: () => mOn, ctx };
+})();
+
+/* ---------- 大字報牌 ---------- */
+let shoutTimer = null;
+function shout(word, who, kind, tile) {
+  if (!OPT.shout) return;
+  const el = $("shout");
+  if (!el) return;
+  if (shoutTimer) clearTimeout(shoutTimer);
+  el.className = "shout " + (kind || "");
+  el.hidden = false;
+  el.innerHTML = "";
+  const row = document.createElement("div");
+  row.className = "row";
+  const w = document.createElement("div");
+  w.className = "w"; w.textContent = word;
+  row.appendChild(w);
+  // 那一張牌直接畫出來，用的是牌桌上同一套牌面
+  if (tile !== undefined && tile !== null && tile >= 0) row.appendChild(tileEl(tile, { size: "h" }));
+  el.appendChild(row);
+  if (who) {
+    const d = document.createElement("div");
+    d.className = "who"; d.innerHTML = who;
+    el.appendChild(d);
+  }
+  shoutTimer = setTimeout(() => {
+    el.classList.add("out");
+    shoutTimer = setTimeout(() => { el.hidden = true; el.className = "shout"; }, 300);
+    // 之前 1.1 秒就收掉，實測「還沒看清楚就不見了」。拉長到吃碰 1.9 秒、胡 3 秒。
+  }, kind === "hu" ? 3000 : 1900);
+}
+
+/* ---------- 事件流 ----------
+   客端不跑規則，所以「誰碰了、誰胡了」不能靠本地邏輯判斷，
+   由房主把事件寫進快照，每個人依序播放。編號只增不減，避免重播。 */
+let evtSeq = 0, seenEvt = 0, evtReady = false;
+function fire(k, seat, extra) {
+  S.evt.push(Object.assign({ id: ++evtSeq, k, seat }, extra || {}));
+  while (S.evt.length > 16) S.evt.shift();
+}
+const SHOUT_WORD = { chow: "吃", pung: "碰", kong: "槓", ankong: "槓", hu: "胡", tsumo: "自摸" };
+const VOICE_WORD = { chow: "吃", pung: "碰！", kong: "槓！", ankong: "暗槓", hu: "胡啦！", tsumo: "自摸啦！" };
+function playEvents() {
+  if (!S.evt || !S.evt.length) return;
+  if (!evtReady) {                       // 第一次載入不要把舊事件整串補播
+    seenEvt = S.evt[S.evt.length - 1].id;
+    evtReady = true;
+    return;
+  }
+  for (const e of S.evt) {
+    if (e.id <= seenEvt) continue;
+    seenEvt = e.id;
+    const who = seatName(e.seat);
+    if (e.k === "discard") { SFX.play("click"); continue; }
+    if (e.k === "draw") { if (e.seat === ME) SFX.play("draw"); continue; }
+    if (e.k === "drawgame") { SFX.play("drawgame"); shout("流局", "沒有人胡", ""); continue; }
+    if (SHOUT_WORD[e.k]) {
+      const kind = (e.k === "hu" || e.k === "tsumo") ? "hu" : (e.k === "kong" || e.k === "ankong") ? "kong" : e.k === "chow" ? "chow" : "";
+      SFX.play(e.k === "hu" || e.k === "tsumo" ? "hu" : e.k === "ankong" ? "kong" : e.k);
+      /* 副標寫清楚「誰、吃碰了誰打的、哪一張」。
+         只喊一個「碰」的話，旁邊三家根本不知道碰的是什麼牌。 */
+      const tn = (e.tile !== undefined && e.tile !== null && e.tile >= 0) ? tileName(e.tile) : "";
+      let sub2 = "<i>" + esc(who) + "</i>";
+      if (e.k === "tsumo") sub2 += "　自摸 " + esc(tn);
+      else if (e.k === "hu") sub2 += "　胡 " + esc(seatName(e.from)) + " 打的 <i>" + esc(tn) + "</i>";
+      else if (e.k === "ankong") sub2 += "　暗槓 <i>" + esc(tn) + "</i>";
+      else sub2 += "　" + SHOUT_WORD[e.k] + " " + esc(seatName(e.from)) + " 打的 <i>" + esc(tn) + "</i>";
+      if (e.tai) sub2 += "　" + e.tai + " 台";
+      shout(SHOUT_WORD[e.k], sub2, kind, e.tile);
+      SFX.say(VOICE_WORD[e.k] + (tn ? " " + tn : ""));
+    }
+  }
+}
+/* 聊天提示音：別人講話才響，自己送出的不用吵自己 */
+let lastChatN = -1;
+function chatPing() {
+  const n = S.chat ? S.chat.length : 0;
+  if (lastChatN < 0) { lastChatN = n; return; }
+  if (n > lastChatN) {
+    const last = S.chat[n - 1];
+    if (!last || last.s !== ME) SFX.play("chat");
+  }
+  lastChatN = n;
+}
 
 /* ---------- 聊天 ----------
    內容一律當成純文字處理。牌局紀錄那一欄是用 innerHTML 畫的，
@@ -2244,6 +2682,7 @@ function renderNet() {
 
 /* ---------- 啟動 ---------- */
 drawParams();
+applyScale();
 applyLevel(1);
 S.seatOf[0] = myName();
 S.scores = [OPT.chips0, OPT.chips0, OPT.chips0, OPT.chips0];
@@ -2265,7 +2704,8 @@ window.__m = {
   cacheStats: () => ({ hit: cacheHit, miss: cacheMiss, size: winCache.size + shCache.size }),
   setFast: (v) => { FAST = v; },
   NET, act, applyAction, seatView, applyView, setAway, resumeSeat, syncSeats, netRecv,
-  pushChat, paintChat, esc, QUICK, renderChips, renderTenpai, waitInfo, tryAutoWin,
+  pushChat, paintChat, esc, QUICK, renderChips, renderTenpai, waitInfo, tryAutoWin, applyScale, fitBoard,
+  SFX, shout, fire, playEvents, chatPing,
   answerClaim, settleClaims, armClaim, myName, setMyName,
   seatOfMe: () => ME, setMe: (v) => { ME = v; },
   seatWind, WINDS, HONOR, CN,
