@@ -1961,6 +1961,7 @@ function seatView(seat) {
     scores: S.scores, phase: S.phase, over: S.over, result: S.result,
     wall: S.wall.length, names: S.seatOf, ai: S.seatAI, away: S.away,
     logs: S.logs, chat: S.chat, lastPay: S.lastPay, evt: S.evt,
+    lastDiscard: S.lastDiscard, lastFrom: S.lastFrom,
     pending: (S.pending && S.pending.seat === seat) ? { kind: S.pending.kind, opts: S.pending.opts } : null,
     claim: S.claim ? {
       tile: S.claim.tile, from: S.claim.from, until: S.claim.until,
@@ -1985,6 +1986,8 @@ function applyView(v) {
   S.chat = v.chat || [];
   S.lastPay = v.lastPay || null;
   S.evt = v.evt || [];
+  S.lastDiscard = (v.lastDiscard === undefined) ? null : v.lastDiscard;
+  S.lastFrom = (v.lastFrom === undefined) ? -1 : v.lastFrom;
   S.pending = v.pending ? { seat: v.me, kind: v.pending.kind, opts: v.pending.opts } : null;
   S.claim = v.claim
     ? { tile: v.claim.tile, from: v.claim.from, until: v.claim.until,
