@@ -23,7 +23,7 @@
     --shadow:0 14px 34px rgba(0,0,0,.45);
   --netok:#5fb37a; --netwait:#9db3a8;
   --ts:1;            /* 牌桌牌面縮放，由「牌面大小」滑桿控制 */
-  --th:1.25;         /* 自己手牌的額外倍率，由「手牌大小」滑桿控制 */
+  --th:1.12;         /* 自己手牌的額外倍率，由「自己手牌」滑桿控制 */
   }
   *{box-sizing:border-box;}
   body{
@@ -114,9 +114,9 @@
     border:1px solid rgba(216,180,90,.10);
     box-shadow:inset 0 1px 4px rgba(0,0,0,.18);
     grid-template-columns:repeat(6, calc(40px * var(--ts)));
-    height:calc(124px * var(--ts)); align-content:start; overflow-y:auto; overscroll-behavior:contain;
+    height:calc(104px * var(--ts)); align-content:start; overflow-y:auto; overscroll-behavior:contain;
   }
-  .pond.v{grid-template-columns:repeat(4, calc(40px * var(--ts))); height:calc(168px * var(--ts));}
+  .pond.v{grid-template-columns:repeat(4, calc(40px * var(--ts))); height:calc(140px * var(--ts));}
   .pond::-webkit-scrollbar{width:6px;}
   .pond::-webkit-scrollbar-thumb{background:rgba(216,180,90,.3); border-radius:3px;}
   .pond.turn{border-color:var(--gold); box-shadow:0 0 0 1px var(--gold), 0 0 20px rgba(216,180,90,.2);}
@@ -167,6 +167,10 @@
   /* 吃碰槓出現時這一條會從無到有，桌面就跟著跳。先把位子留好。 */
   .melds{min-height:34px; align-items:flex-start;}
   .seat .backs{min-height:32px;}
+  /* 花牌與副露是打到一半才長出來的。不預留位子的話，盤面高度一變，
+     自動縮放就重算出不同倍率，整張桌子會跳 —— 就是「畫面忽大忽小」。 */
+  .seat .flowers{min-height:calc(29px * var(--ts));}
+  .seat{min-height:calc(150px * var(--ts));}
 
   .myhand{
     margin-top:12px; display:flex; align-items:flex-end; gap:5px; flex-wrap:wrap;
@@ -176,6 +180,21 @@
   .mymelds{display:flex; gap:6px; justify-content:center; flex-wrap:wrap; margin-top:7px; min-height:34px;}
 
   .acts{display:flex; gap:7px; flex-wrap:wrap; justify-content:center; margin-top:10px; min-height:42px;}
+  /* 吃碰槓胡只有幾秒可以按，擺在頁面最下面常常整個錯過。
+     一有得按就浮到畫面中下方，想不看到都難。 */
+  .acts.pop{
+    position:fixed; left:50%; bottom:clamp(14px,4vh,48px); transform:translateX(-50%);
+    z-index:40; margin:0; padding:14px 20px; border-radius:18px;
+    background:rgba(8,26,21,.94); border:2px solid var(--gold);
+    box-shadow:0 18px 50px rgba(0,0,0,.7), 0 0 0 6px rgba(216,180,90,.14);
+    animation:actsPop .28s cubic-bezier(.2,1.5,.4,1) both;
+    max-width:min(94vw,760px);
+  }
+  @keyframes actsPop{from{opacity:0; transform:translateX(-50%) translateY(24px) scale(.9);}
+                     to{opacity:1; transform:translateX(-50%) translateY(0) scale(1);}}
+  .acts.pop button.btn{font-size:17px; padding:12px 26px;}
+  .acts.pop button.btn.win{font-size:19px; padding:12px 30px;}
+  @media (prefers-reduced-motion:reduce){ .acts.pop{animation:none;} }
   button.btn{
     appearance:none; border:1px solid var(--line); background:var(--panel-2); color:var(--silk);
     border-radius:9px; padding:10px 20px; font-family:inherit; font-size:14px; font-weight:700; cursor:pointer;
@@ -287,7 +306,7 @@
   @keyframes shoutBg{from{opacity:0;}to{opacity:1;}}
   .shout .w{
     font-family:"Noto Serif TC",serif; font-weight:900; line-height:.92;
-    font-size:clamp(110px,26vw,340px); letter-spacing:.06em;
+    font-size:clamp(99px,23.4vw,306px); letter-spacing:.06em;
     color:var(--gold);
     -webkit-text-stroke:clamp(3px,.6vw,8px) rgba(0,0,0,.62); paint-order:stroke fill;
     text-shadow:0 10px 0 rgba(0,0,0,.42), 0 0 80px rgba(216,180,90,.95), 0 0 170px rgba(216,180,90,.55);
@@ -296,12 +315,12 @@
   .shout .row{display:flex; align-items:center; gap:clamp(14px,3.4vw,44px);}
   /* 吃碰胡一定要看得到「是哪一張」，不然只知道有人碰了卻不知道碰什麼 */
   .shout .row .t{
-    width:clamp(96px,19vw,200px) !important; height:auto !important; aspect-ratio:36/50; border-radius:9px;
+    width:clamp(86px,17.1vw,180px) !important; height:auto !important; aspect-ratio:36/50; border-radius:9px;
     animation:shoutIn .5s .09s cubic-bezier(.15,1.55,.4,1) both;
     box-shadow:0 14px 40px rgba(0,0,0,.75), 0 0 0 4px var(--gold), 0 0 60px rgba(216,180,90,.6);
   }
   .shout .who{
-    font-size:clamp(20px,4.2vw,40px); font-weight:900; color:var(--silk); text-align:center;
+    font-size:clamp(18px,3.8vw,36px); font-weight:900; color:var(--silk); text-align:center;
     background:rgba(0,0,0,.6); border:2px solid rgba(216,180,90,.5);
     padding:.3em 1em; border-radius:99px; line-height:1.35;
     text-shadow:0 2px 8px rgba(0,0,0,.9);
@@ -890,7 +909,7 @@ const OPT = {
   shout: 1,           // 吃碰槓胡的大字提示
   autoWin: 1,         // 聽牌後胡牌的那張一出現就自動胡，不必趕著按
   tileScale: 1,       // 牌桌上的牌面大小
-  handScale: 1.25,    // 自己手牌的額外倍率。手牌在縮放區外，放大不會擠到牌桌
+  handScale: 1.12,    // 自己手牌的額外倍率（比上一版小約 10%，騰出高度給牌桌）
   chips0: 0,          // 起始籌碼。輸到負的不會停，麻將本來就是欠著記帳
   afkMs: 45000,       // 連線時多久沒動作就幫他打這一手（0 = 不限）
   showHands: 0,       // 是否掀開電腦的手牌（觀戰／除錯）
@@ -1655,6 +1674,8 @@ function tryAutoWin() {
 }
 function renderActs() {
   stopClaimTick();
+  const A0x = $("acts");
+  if (A0x) A0x.classList.remove("pop");
   if (tryAutoWin()) {
     const A0 = $("acts");
     A0.innerHTML = '<div style="font-size:14px;color:var(--good);font-weight:700;align-self:center">🎉 胡了！自動幫你叫牌…</div>';
@@ -1670,6 +1691,7 @@ function renderActs() {
   const myClaim = (S.claim && S.claim.need[ME] !== undefined && S.claim.got[ME] === undefined)
     ? S.claim.need[ME] : null;
   if (myClaim) {
+    A.classList.add("pop");          // 有得吃碰槓胡就浮到畫面中下方
     const seen = new Set();
     for (const o of myClaim) {
       const label = o.type === "win" ? (o.rob ? "搶槓胡" : "胡") :
@@ -1702,6 +1724,7 @@ function renderActs() {
     return;
   }
   if (S.pending && S.pending.kind === "self" && S.pending.seat === ME) {
+    A.classList.add("pop");          // 自摸／暗槓／加槓同樣浮出來
     for (const o of S.pending.opts) {
       if (o.type === "win") mk("自摸", "win", () => act({ kind: "self", opt: o }));
       else if (o.type === "ankong") mk("暗槓 " + tileName(o.tile), "go", () => act({ kind: "self", opt: o }));
@@ -1810,22 +1833,37 @@ function renderChips() {
 }
 function applyScale() {
   document.documentElement.style.setProperty("--ts", String(OPT.tileScale || 1));
-  document.documentElement.style.setProperty("--th", String(OPT.handScale || 1.25));
-  fitBoard();
+  document.documentElement.style.setProperty("--th", String(OPT.handScale || 1.12));
+  fitBoard(true);
 }
 /* 量出牌桌的原始尺寸，再算出能塞進目前視窗的倍率。
    外層容器的高度要跟著設成縮放後的高度，否則下面的按鈕列會被推開一大段空白。 */
-function fitBoard() {
+let fitCache = { nh: 0, rsv: 0, vw: 0, vh: 0, k: 1 };
+const reserveOf = () => {
+  const mz = $("myzone"), ac = $("acts");
+  return (mz ? mz.offsetHeight : 0) + (ac ? ac.offsetHeight : 0) + 28;
+};
+function fitBoard(force) {
   const wrap = $("boardfit"), b = $("board");
   if (!wrap || !b) return;
+  /* 每次重畫都重量再縮放，盤面高度只要差一點點，倍率就跟著變，
+     畫面會一直微微彈跳，玩的人得重新找目標。
+     改成：視窗沒變、盤面高度變化不到 12px 就沿用上次的倍率。 */
+  if (!force && fitCache.vw === innerWidth && fitCache.vh === innerHeight) {
+    const cur = b.offsetHeight, rsv = reserveOf();
+    if (fitCache.nh && Math.abs(cur - fitCache.nh) < 12 && Math.abs(rsv - fitCache.rsv) < 12) {
+      b.style.transform = fitCache.k < 0.999 ? "scale(" + fitCache.k.toFixed(4) + ")" : "none";
+      wrap.style.height = Math.round(fitCache.nh * fitCache.k) + "px";
+      return;
+    }
+  }
   b.style.transform = "none";
   wrap.style.height = "auto";
   const nh = b.offsetHeight, nw = b.offsetWidth;
   if (!nh || !nw) return;
   const top = wrap.getBoundingClientRect().top + window.scrollY - (document.scrollingElement || document.documentElement).scrollTop;
   // 底下要留給「自己的手牌區」與動作按鈕，這兩塊不縮放
-  const mz = $("myzone"), ac = $("acts");
-  const reserve = (mz ? mz.offsetHeight : 0) + (ac ? ac.offsetHeight : 0) + 28;
+  const reserve = reserveOf();
   const room = window.innerHeight - wrap.getBoundingClientRect().top - reserve;
   let k = Math.min(1, room / nh);
   const availW = wrap.clientWidth || nw;
@@ -1835,9 +1873,10 @@ function fitBoard() {
   k = Math.max(0.78, Math.min(1, k));
   b.style.transform = k < 0.999 ? "scale(" + k.toFixed(4) + ")" : "none";
   wrap.style.height = Math.round(nh * k) + "px";
+  fitCache = { nh, rsv: reserve, vw: innerWidth, vh: innerHeight, k };
 }
 let fitT = null;
-addEventListener("resize", () => { clearTimeout(fitT); fitT = setTimeout(fitBoard, 80); });
+addEventListener("resize", () => { clearTimeout(fitT); fitT = setTimeout(() => fitBoard(true), 80); });
 function syncHud() {
   $("hRound").textContent = WINDS[S.roundWind] + " " + S.hand;
   $("hLeft").textContent = S.wall.length;
