@@ -23,7 +23,7 @@
     --shadow:0 14px 34px rgba(0,0,0,.45);
   --netok:#5fb37a; --netwait:#9db3a8;
   --ts:1;            /* 牌桌牌面縮放，由「牌面大小」滑桿控制 */
-  --th:1.12;         /* 自己手牌的額外倍率，由「自己手牌」滑桿控制 */
+  --th:1;            /* 自己手牌的額外倍率，由「自己手牌」滑桿控制 */
   }
   *{box-sizing:border-box;}
   body{
@@ -165,8 +165,8 @@
   .seat{display:flex; flex-direction:column; align-items:center; gap:5px;}
   .seat.side-l,.seat.side-r{max-width:calc(200px * var(--ts));}
   /* 吃碰槓出現時這一條會從無到有，桌面就跟著跳。先把位子留好。 */
-  .melds{min-height:34px; align-items:flex-start;}
-  .seat .backs{min-height:32px;}
+  .melds{min-height:calc(31px * var(--ts)); align-items:flex-start;}
+  .seat .backs{min-height:calc(31px * var(--ts));}
   /* 花牌與副露是打到一半才長出來的。不預留位子的話，盤面高度一變，
      自動縮放就重算出不同倍率，整張桌子會跳 —— 就是「畫面忽大忽小」。 */
   .seat .flowers{min-height:calc(29px * var(--ts));}
@@ -177,7 +177,8 @@
     justify-content:center; min-height:calc(86px * var(--th));
   }
   .myhand .gap{width:14px;}
-  .mymelds{display:flex; gap:6px; justify-content:center; flex-wrap:wrap; margin-top:7px; min-height:34px;}
+  .mymelds{display:flex; gap:6px; justify-content:center; flex-wrap:wrap; margin-top:7px;
+    min-height:calc(57px * var(--th));}
 
   .acts{display:flex; gap:7px; flex-wrap:wrap; justify-content:center; margin-top:10px; min-height:42px;}
   /* 吃碰槓胡只有幾秒可以按，擺在頁面最下面常常整個錯過。
@@ -909,7 +910,7 @@ const OPT = {
   shout: 1,           // 吃碰槓胡的大字提示
   autoWin: 1,         // 聽牌後胡牌的那張一出現就自動胡，不必趕著按
   tileScale: 1,       // 牌桌上的牌面大小
-  handScale: 1.12,    // 自己手牌的額外倍率（比上一版小約 10%，騰出高度給牌桌）
+  handScale: 1.0,     // 自己手牌的額外倍率（又比上一版小約 10%，騰出的高度全給牌桌）
   chips0: 0,          // 起始籌碼。輸到負的不會停，麻將本來就是欠著記帳
   afkMs: 45000,       // 連線時多久沒動作就幫他打這一手（0 = 不限）
   showHands: 0,       // 是否掀開電腦的手牌（觀戰／除錯）
@@ -1525,7 +1526,7 @@ function seatBlock(seat, cls) {
     for (let k = 0; k < Math.min(S.hands[seat].length, 16); k++) h.appendChild(tileEl(0, { size: "xs", back: true }));
     b.appendChild(h);
   }
-  if (S.melds[seat].length) b.appendChild(meldsEl(seat, "s"));
+  b.appendChild(meldsEl(seat, "xs"));   // 一律加上去佔位，空的也是
   return b;
 }
 
@@ -1588,12 +1589,12 @@ function render() {
     }));
   }
   MZ.appendChild(mh);
-  if (S.melds[ME].length || S.flowers[ME].length) {
-    const mm = document.createElement("div"); mm.className = "mymelds";
-    if (S.flowers[ME].length) mm.appendChild(flowersEl(ME));
-    mm.appendChild(meldsEl(ME, "m"));
-    MZ.appendChild(mm);
-  }
+  /* 這一塊一律加上去，即使是空的 —— 副露到中盤才出現，
+     等它出現才佔位會讓手牌區長高，牌桌的縮放就得重算，畫面跳一下。 */
+  const mm = document.createElement("div"); mm.className = "mymelds";
+  if (S.flowers[ME].length) mm.appendChild(flowersEl(ME));
+  if (S.melds[ME].length) mm.appendChild(meldsEl(ME, "m"));
+  MZ.appendChild(mm);
 
   if (S.over) B.appendChild(resultBanner());
   renderActs();
@@ -1833,7 +1834,7 @@ function renderChips() {
 }
 function applyScale() {
   document.documentElement.style.setProperty("--ts", String(OPT.tileScale || 1));
-  document.documentElement.style.setProperty("--th", String(OPT.handScale || 1.12));
+  document.documentElement.style.setProperty("--th", String(OPT.handScale || 1));
   fitBoard(true);
 }
 /* 量出牌桌的原始尺寸，再算出能塞進目前視窗的倍率。
@@ -1851,7 +1852,7 @@ function fitBoard(force) {
      改成：視窗沒變、盤面高度變化不到 12px 就沿用上次的倍率。 */
   if (!force && fitCache.vw === innerWidth && fitCache.vh === innerHeight) {
     const cur = b.offsetHeight, rsv = reserveOf();
-    if (fitCache.nh && Math.abs(cur - fitCache.nh) < 12 && Math.abs(rsv - fitCache.rsv) < 12) {
+    if (fitCache.nh && Math.abs(cur - fitCache.nh) < 24 && Math.abs(rsv - fitCache.rsv) < 24) {
       b.style.transform = fitCache.k < 0.999 ? "scale(" + fitCache.k.toFixed(4) + ")" : "none";
       wrap.style.height = Math.round(fitCache.nh * fitCache.k) + "px";
       return;
@@ -1870,7 +1871,7 @@ function fitBoard(force) {
   if (nw * k > availW) k = availW / nw;
   /* 下限 0.78：再縮下去桌上的牌會比原本還小，那就本末倒置了。
      塞不下就讓頁面捲，捲一下總比看不清楚好。 */
-  k = Math.max(0.78, Math.min(1, k));
+  k = Math.max(0.62, Math.min(1, k));
   b.style.transform = k < 0.999 ? "scale(" + k.toFixed(4) + ")" : "none";
   wrap.style.height = Math.round(nh * k) + "px";
   fitCache = { nh, rsv: reserve, vw: innerWidth, vh: innerHeight, k };
