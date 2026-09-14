@@ -42,7 +42,7 @@
   .hud .g b{color:var(--gold);}
 
   .row{display:grid; grid-template-columns:minmax(0,1fr) 286px; gap:10px; align-items:start;}
-  @media (max-width:1080px){ .row{grid-template-columns:1fr;} }
+  @media (max-width:1080px){ .row{grid-template-columns:minmax(0,1fr);} }
 
   /* 牌桌是固定尺寸排出來的，牌一放大就會超出螢幕高度。
      這一層負責把整張桌子等比縮到塞得進一屏，寧可縮小也不要讓人捲來捲去。 */
@@ -183,8 +183,9 @@
   .acts{display:flex; gap:7px; flex-wrap:wrap; justify-content:center; margin-top:10px; min-height:42px;}
   /* 吃碰槓胡只有幾秒可以按，擺在頁面最下面常常整個錯過。
      一有得按就浮到畫面中下方，想不看到都難。 */
+  /* --kb：手機鍵盤的高度（由 visualViewport 算出來）。正在打字時視窗要浮在鍵盤上面，不能被蓋住。 */
   .acts.pop{
-    position:fixed; left:50%; bottom:clamp(14px,4vh,48px); transform:translateX(-50%);
+    position:fixed; left:50%; bottom:calc(clamp(14px,4vh,48px) + var(--kb, 0px)); transform:translateX(-50%);
     z-index:40; margin:0; padding:14px 20px; border-radius:18px;
     background:rgba(8,26,21,.94); border:2px solid var(--gold);
     box-shadow:0 18px 50px rgba(0,0,0,.7), 0 0 0 6px rgba(216,180,90,.14);
@@ -226,7 +227,9 @@
   .card{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:10px 11px;}
   .card h3{margin:0 0 8px; font-size:10.5px; letter-spacing:.14em; color:var(--gold); font-weight:700;}
   .claimcd{display:flex; align-items:center; gap:8px; margin-left:6px; align-self:center;}
-  .claimcd .t{font-size:12px; color:var(--silk-dim); font-variant-numeric:tabular-nums; white-space:nowrap;}
+  /* 固定寬度：秒數每 0.1 秒一變，寬度跟著變的話整個置中的視窗會左右抖，手機上按鈕就按不到。 */
+  .claimcd .t{font-size:12px; color:var(--silk-dim); font-variant-numeric:tabular-nums; white-space:nowrap; min-width:6.8em;}
+  .acts.pop.sent{opacity:.55;}
   .claimcd .t.hot{color:#ff9a76; font-weight:700;}
   .claimcd .bar{display:block; width:84px; height:6px; border-radius:99px;
     background:rgba(255,255,255,.14); overflow:hidden;}
@@ -438,6 +441,39 @@
     width:100%; font:inherit; font-size:11.5px; padding:5px 7px; border-radius:7px; margin-top:5px;
     border:1px solid var(--line); background:rgba(0,0,0,.3); color:var(--silk);
   }
+
+  /* ---------- 語音（按住說話） ---------- */
+  .vstat{font-size:11.5px; line-height:1.7; color:var(--silk-dim); margin-bottom:7px;}
+  .vstat b{color:var(--silk);}
+  .noselect{user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; touch-action:none;}
+  .btn.ptt{width:100%; padding:14px 10px; font-size:16px; margin:2px 0 8px;}
+  .btn.ptt.on, .ptt-float.on{background:var(--good); border-color:var(--good); color:#08201a; box-shadow:0 0 0 4px rgba(95,179,122,.35);}
+  .vlist{display:flex; flex-direction:column; gap:4px; font-size:12px; margin-top:4px;}
+  .vlist .vr{display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:4px 6px; align-items:center;
+    padding:4px 6px; border-radius:7px; background:rgba(0,0,0,.2); border:1px solid transparent;}
+  .vlist .vr.talking{border-color:var(--good); background:rgba(95,179,122,.14);}
+  .vlist .vr.talking .nm::before{content:"🎙 ";}
+  .vlist .nm{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--silk);}
+  .vlist .st{color:var(--silk-dim); font-size:11px; white-space:nowrap;}
+  .vlist .st.ok{color:var(--good);}
+  .vlist .st.bad{color:var(--bad);}
+  .vlist .vm{padding:3px 7px; font-size:12px;}
+  .vlist input[type=range]{grid-column:1 / -1; width:100%; height:14px; accent-color:var(--gold);}
+  /* 手機用的浮動說話鈕。位置由 vPlaceFloat() 自己挑一個底下沒有手牌、按鈕的地方。 */
+  .ptt-float{
+    position:fixed; left:10px; top:45%; z-index:39; width:64px; height:64px; border-radius:50%;
+    border:2px solid var(--gold); background:rgba(8,26,21,.92); color:var(--silk); font-size:24px; line-height:1.05;
+    cursor:pointer; box-shadow:0 8px 24px rgba(0,0,0,.55); font-family:inherit; padding:0;
+  }
+  .ptt-float small{display:block; font-size:10px; font-weight:700;}
+  /* 寬螢幕側欄就在牌桌旁邊，語音卡片的大按鈕跟 V 鍵隨手可按，浮動鈕只會蓋到自己的手牌 */
+  @media (min-width:1081px){ .ptt-float, .pttrow{display:none !important;} }
+  /* 手牌鋪滿畫面時浮動鈕放哪裡都會蓋到牌，就先收起來；手牌正下方那顆一定按得到 */
+  .ptt-float.nospot{display:none !important;}
+  .pttrow{margin-top:8px;}
+  .pttrow .btn.ptt{margin:0;}
+  .who.talking{border-color:var(--good); box-shadow:0 0 0 2px rgba(95,179,122,.55); color:var(--silk);}
+  .who.talking::before{content:"🎙"; margin-right:2px;}
 </style>
 
 <div class="wrap">
@@ -456,8 +492,10 @@
     <div>
       <div class="boardfit" id="boardfit"><div class="board" id="board"></div></div>
       <div class="myzone" id="myzone"></div>
+      <div class="pttrow" id="pttRow" hidden><button class="btn ptt noselect" id="pttBtn2" type="button">🎙 按住說話</button></div>
       <div class="shout" id="shout" hidden></div>
       <div class="acts" id="acts"></div>
+      <button class="ptt-float noselect" id="pttFloat" type="button" hidden aria-label="按住說話">🎙<small>按住說話</small></button>
     </div>
     <div class="side">
       <div class="card"><h3>聽牌</h3><div id="tenpai"></div></div>
@@ -474,6 +512,15 @@
           <button class="btn mini" id="chatsend">送出</button>
         </div>
       </div>
+      <div class="card" id="voicecard" hidden>
+        <h3>語音</h3>
+        <div class="vstat" id="vstat"></div>
+        <button class="btn ptt noselect" id="pttBtn" type="button" hidden>🎙 按住說話</button>
+        <button class="btn" style="width:100%" id="vJoin" type="button">加入語音</button>
+        <div class="nethint" id="vhint" style="margin-top:6px" hidden>瀏覽器擋住了自動播放聲音。
+          <button class="btn mini" id="vUnblock" type="button">點這裡開啟聲音</button></div>
+        <div class="vlist" id="vlist"></div>
+      </div>
       <div class="card"><h3>牌局參數</h3><div id="params"></div></div>
       <div class="card"><h3>台數表</h3><div class="tais-tbl" id="taiTable"></div></div>
       <div class="card"><h3>怎麼玩</h3><div class="hintbox">
@@ -487,6 +534,433 @@
   </div>
 </div>
 
+<!-- GAME-AUDIO:BEGIN（由 工具/addaudio.mjs 產生，不要手改） -->
+<style>[hidden]{display:none!important}</style>
+<script>
+window.GAME_AUDIO_CONFIG = {"style":"teahouse","id":"mahjong","ownMusic":true};
+/* 遊戲音樂音效共用套件：程序生成背景音樂 + 合成音效 + 可拖曳的開關按鈕。
+   由 工具/addaudio.mjs 注入各遊戲，不要直接改遊戲裡那一份。
+   遊戲端只要呼叫 GameAudio.sfx('名稱')；背景音樂在第一次點擊或按鍵後自動開始。 */
+(function () {
+  if (window.GameAudio) return;
+  // pos：開關按鈕預設角落 br/bl/tr/tl；ownMusic：遊戲自己有背景音樂，套件只負責開關不產生音樂
+  const CFG = Object.assign({ style: 'chip', id: 'game', pos: 'br', ownMusic: false }, window.GAME_AUDIO_CONFIG || {});
+  const KEY = 'game-audio-v1';
+  const load = k => { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } };
+  const store = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
+  const S = Object.assign({ music: true, sfx: true, mvol: .45, svol: .8 }, load(KEY) || {});
+  // 開關變動時通知遊戲（例如自己有背景音樂的十六張）
+  const notify = () => window.dispatchEvent(new CustomEvent('gameaudiochange', { detail: { music: S.music, sfx: S.sfx, mvol: S.mvol, svol: S.svol } }));
+
+  /* ---------- 音訊節點 ---------- */
+  let ctx = null, musicBus, sfxBus, duck, noiseBuf, unlocked = false;
+  function ensure() {
+    if (!ctx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      try { ctx = new AC(); } catch (e) { return null; }
+      const comp = ctx.createDynamicsCompressor();
+      comp.threshold.value = -12; comp.ratio.value = 4; comp.connect(ctx.destination);
+      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 5000;
+      musicBus = ctx.createGain(); duck = ctx.createGain();
+      musicBus.connect(lp); lp.connect(duck); duck.connect(comp);
+      sfxBus = ctx.createGain(); sfxBus.connect(comp);
+      noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+      const d = noiseBuf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      applyVol(true);
+    }
+    if (ctx.state === 'suspended' && !document.hidden) ctx.resume();
+    return ctx;
+  }
+  function applyVol(now) {
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    musicBus.gain.setTargetAtTime(S.music ? S.mvol * .5 : 0, t, now ? 0.001 : .08);
+    sfxBus.gain.setTargetAtTime(S.sfx ? S.svol : 0, t, now ? 0.001 : .03);
+  }
+  const mf = m => 440 * Math.pow(2, (m - 69) / 12);
+
+  function osc(bus, type, f0, t, dur, vol, f1, attack) {
+    attack = attack || .005;
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type; o.frequency.setValueAtTime(f0, t);
+    if (f1) o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
+    g.gain.setValueAtTime(.0001, t);
+    g.gain.exponentialRampToValueAtTime(Math.max(.0002, vol), t + attack);
+    g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    o.connect(g); g.connect(bus); o.start(t); o.stop(t + dur + .05);
+  }
+  function noise(bus, t, dur, vol, ftype, f0, f1, q) {
+    const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+    s.buffer = noiseBuf; s.loop = true;
+    f.type = ftype; f.frequency.setValueAtTime(f0, t); f.Q.value = q || 1;
+    if (f1) f.frequency.exponentialRampToValueAtTime(Math.max(30, f1), t + dur);
+    g.gain.setValueAtTime(Math.max(.0002, vol), t); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    s.connect(f); f.connect(g); g.connect(bus); s.start(t, Math.random() * .5); s.stop(t + dur + .05);
+  }
+  const arp = (t, fs, gap, type, vol, p, len) => fs.forEach((f, i) => osc(sfxBus, type, f * p, t + i * gap, len || gap * 2.2, vol));
+  const chord = (t, fs, dur, type, vol, p) => fs.forEach(f => osc(sfxBus, type, f * p, t, dur, vol, 0, .02));
+  function duckMusic(sec) {
+    if (!ctx) return;
+    const g = duck.gain, t = ctx.currentTime;
+    g.cancelScheduledValues(t); g.setTargetAtTime(.22, t, .04); g.setTargetAtTime(1, t + sec, .35);
+  }
+
+  /* ---------- 音效庫：(開始時間, 音高倍率, 音量倍率, 參數) ---------- */
+  const SFX = {
+    click:    (t, p, v) => osc(sfxBus, 'square', 1200 * p, t, .035, .06 * v),
+    hover:    (t, p, v) => osc(sfxBus, 'sine', 1800 * p, t, .025, .035 * v),
+    move:     (t, p, v) => osc(sfxBus, 'square', 520 * p, t, .045, .05 * v),
+    rotate:   (t, p, v) => osc(sfxBus, 'triangle', 660 * p, t, .06, .11 * v, 990 * p),
+    drop:     (t, p, v) => osc(sfxBus, 'triangle', 420 * p, t, .14, .17 * v, 110 * p),
+    land:     (t, p, v) => { noise(sfxBus, t, .07, .2 * v, 'lowpass', 1100 * p); osc(sfxBus, 'sine', 120 * p, t, .09, .2 * v, 60 * p); },
+    clear:    (t, p, v) => { arp(t, [659, 880, 1175, 1568], .055, 'square', .08 * v, p); noise(sfxBus, t, .35, .05 * v, 'highpass', 6000); },
+    combo:    (t, p, v) => arp(t, [784, 988, 1175], .05, 'square', .08 * v, p),
+    coin:     (t, p, v) => { osc(sfxBus, 'square', 988 * p, t, .07, .08 * v); osc(sfxBus, 'square', 1319 * p, t + .07, .22, .08 * v); },
+    cash:     (t, p, v) => { noise(sfxBus, t, .05, .14 * v, 'bandpass', 3000, 0, 4); osc(sfxBus, 'triangle', 1568 * p, t + .05, .5, .13 * v); osc(sfxBus, 'triangle', 2093 * p, t + .05, .5, .07 * v); },
+    buy:      (t, p, v, o) => SFX.cash(t, p, v, o),
+    chip:     (t, p, v) => { osc(sfxBus, 'square', 2600 * p, t, .02, .05 * v); osc(sfxBus, 'square', 3100 * p, t + .03, .03, .04 * v); },
+    pickup:   (t, p, v) => osc(sfxBus, 'square', 880 * p, t, .12, .08 * v, 1760 * p),
+    powerup:  (t, p, v) => arp(t, [523, 659, 784, 1047, 1319, 1568], .04, 'square', .07 * v, p),
+    levelup:  (t, p, v) => { arp(t, [523, 659, 784, 1047], .08, 'triangle', .13 * v, p); arp(t + .34, [1047, 1319, 1568, 2093], .06, 'square', .05 * v, p); },
+    start:    (t, p, v) => arp(t, [392, 523, 659, 784], .09, 'square', .08 * v, p),
+    win:      (t, p, v) => { duckMusic(1.4); arp(t, [523, 659, 784, 1047], .1, 'triangle', .15 * v, p); chord(t + .42, [523, 659, 784, 1047], .9, 'triangle', .06 * v, p); },
+    bigwin:   (t, p, v) => { duckMusic(3); arp(t, [523, 659, 784, 1047, 784, 1047, 1319, 1568], .11, 'square', .07 * v, p); chord(t + .9, [523, 784, 1047, 1319, 1568], 1.6, 'sawtooth', .03 * v, p); noise(sfxBus, t + .9, 1.2, .045 * v, 'highpass', 7000); },
+    lose:     (t, p, v) => { duckMusic(1.4); arp(t, [392, 330, 262], .16, 'sawtooth', .05 * v, p, .3); },
+    gameover: (t, p, v) => { duckMusic(2.5); arp(t, [494, 466, 440, 415], .22, 'square', .05 * v, p, .34); osc(sfxBus, 'sawtooth', 208 * p, t + .9, .9, .05 * v, 104 * p); },
+    error:    (t, p, v) => { osc(sfxBus, 'square', 220 * p, t, .1, .07 * v); osc(sfxBus, 'square', 165 * p, t + .11, .14, .07 * v); },
+    alert:    (t, p, v) => { osc(sfxBus, 'square', 880 * p, t, .1, .07 * v); osc(sfxBus, 'square', 880 * p, t + .16, .1, .07 * v); },
+    tick:     (t, p, v) => osc(sfxBus, 'square', 1500 * p, t, .018, .045 * v),
+    hit:      (t, p, v) => { noise(sfxBus, t, .09, .26 * v, 'bandpass', 1400 * p, 0, 1.2); osc(sfxBus, 'sine', 200 * p, t, .12, .2 * v, 70 * p); },
+    explode:  (t, p, v) => { duckMusic(.6); noise(sfxBus, t, .7, .45 * v, 'lowpass', 3200 * p, 90); osc(sfxBus, 'sine', 110 * p, t, .6, .45 * v, 30); },
+    bomb:     (t, p, v, o) => SFX.explode(t, p, v, o),
+    fuse:     (t, p, v) => noise(sfxBus, t, .12, .05 * v, 'highpass', 5000),
+    fire:     (t, p, v) => noise(sfxBus, t, .4, .12 * v, 'bandpass', 700 * p, 300 * p, .8),
+    whoosh:   (t, p, v) => noise(sfxBus, t, .26, .15 * v, 'bandpass', 400 * p, 2600 * p, 1.5),
+    bounce:   (t, p, v) => osc(sfxBus, 'sine', 380 * p, t, .08, .18 * v, 620 * p),
+    step:     (t, p, v) => noise(sfxBus, t, .035, .07 * v, 'bandpass', 700 * p, 0, 2),
+    card:     (t, p, v) => { noise(sfxBus, t, .06, .15 * v, 'highpass', 2600 * p); osc(sfxBus, 'triangle', 900 * p, t, .025, .03 * v); },
+    flip:     (t, p, v) => noise(sfxBus, t, .09, .13 * v, 'bandpass', 1800 * p, 3800 * p, 1),
+    deal:     (t, p, v) => { noise(sfxBus, t, .05, .13 * v, 'highpass', 3000 * p); noise(sfxBus, t + .05, .04, .07 * v, 'highpass', 2200 * p); },
+    shuffle:  (t, p, v) => { for (let i = 0; i < 7; i++) noise(sfxBus, t + i * .045, .04, .09 * v, 'highpass', 2400 + Math.random() * 1600); },
+    tile:     (t, p, v) => { osc(sfxBus, 'square', 2300 * p, t, .022, .06 * v); noise(sfxBus, t, .05, .2 * v, 'bandpass', 2600 * p, 0, 3); },
+    dice:     (t, p, v) => { for (let i = 0; i < 5; i++) noise(sfxBus, t + i * .06 + Math.random() * .03, .03, .18 * v, 'bandpass', 2000 + Math.random() * 1500, 0, 4); },
+    daub:     (t, p, v) => { noise(sfxBus, t, .07, .28 * v, 'lowpass', 600 * p); osc(sfxBus, 'sine', 170 * p, t, .08, .18 * v, 80 * p); },
+    ball:     (t, p, v) => { osc(sfxBus, 'triangle', 300 * p, t, .16, .11 * v, 520 * p); noise(sfxBus, t + .14, .04, .13 * v, 'bandpass', 1800, 0, 3); },
+    spin:     (t, p, v) => noise(sfxBus, t, .35, .06 * v, 'bandpass', 900 * p, 300 * p, 2),
+    reelstop: (t, p, v) => { osc(sfxBus, 'square', 150 * p, t, .07, .05 * v); noise(sfxBus, t, .04, .11 * v, 'lowpass', 900); },
+    tease:    (t, p, v, o) => osc(sfxBus, 'sawtooth', 220 * p, t, o.dur || 1.2, .03 * v, 880 * p, .12),
+    wheeltick:(t, p, v) => osc(sfxBus, 'square', 1100 * p, t, .025, .035 * v),
+    sword:    (t, p, v) => { noise(sfxBus, t, .15, .17 * v, 'highpass', 3500 * p, 1200 * p); osc(sfxBus, 'sawtooth', 1800 * p, t + .02, .1, .025 * v, 900 * p); },
+    march:    (t, p, v) => { for (let i = 0; i < 4; i++) noise(sfxBus, t + i * .13, .06, .11 * v, 'lowpass', 500 * p); },
+    drum:     (t, p, v) => { osc(sfxBus, 'sine', 90 * p, t, .35, .38 * v, 45 * p); noise(sfxBus, t, .08, .14 * v, 'lowpass', 400); },
+    gong:     (t, p, v) => { duckMusic(1.5); [1, 1.51, 2.03, 2.76].forEach((m, i) => osc(sfxBus, 'sine', 110 * p * m, t, 2.4 - i * .4, .11 * v / (i + 1))); },
+  };
+
+  const lastAt = {};
+  function sfx(name, o) {
+    if (!S.sfx || !SFX[name] || !ensure()) return;
+    o = o || {};
+    const now = ctx.currentTime, gap = o.gap != null ? o.gap : .03;
+    if (lastAt[name] != null && now - lastAt[name] < gap) return;
+    lastAt[name] = now;
+    try { SFX[name](now + .005, o.pitch || 1, o.vol == null ? 1 : o.vol, o); } catch (e) {}
+  }
+
+  /* ---------- 背景音樂：依風格即時生成，不是固定的曲子 ---------- */
+  const SCALES = {
+    major: [0, 2, 4, 5, 7, 9, 11], minor: [0, 2, 3, 5, 7, 8, 10], dorian: [0, 2, 3, 5, 7, 9, 10],
+    mixo: [0, 2, 4, 5, 7, 9, 10], harm: [0, 2, 3, 5, 7, 8, 11], penta: [0, 2, 4, 7, 9], pentaMin: [0, 3, 5, 7, 10],
+  };
+  // k 大鼓 s 小鼓 h 鈸 w 木魚 t 低音鼓；每個字元是一個八分音符
+  const STYLES = {
+    casino:    { bpm: 118, scale: 'major',    root: 60, prog: [0, 5, 3, 4], lead: 'square',   leadVol: .04, density: .6,  bass: 'walk',   bassType: 'triangle', pad: 'triangle', swing: .14, drums: { k: 'x...x...', s: '....x...', h: 'x.x.x.x.' } },
+    lounge:    { bpm: 98,  scale: 'mixo',     root: 62, prog: [0, 3, 0, 4], lead: 'vibes',    leadVol: .06, density: .45, bass: 'root',   bassType: 'triangle', pad: 'sine',     swing: .2,  drums: { k: 'x.....x.', s: '....x...', h: '..x...x.' } },
+    chip:      { bpm: 144, scale: 'major',    root: 60, prog: [0, 4, 5, 3], lead: 'square',   leadVol: .035, density: .75, bass: 'octave', bassType: 'square', arp: true, swing: 0, drums: { k: 'x...x...', s: '....x...', h: 'xxxxxxxx' } },
+    action:    { bpm: 152, scale: 'minor',    root: 57, prog: [0, 5, 2, 6], lead: 'sawtooth', leadVol: .03, density: .6,  bass: 'octave', bassType: 'sawtooth', arp: true, swing: 0, drums: { k: 'x.x.x.x.', s: '....x...', h: 'xxxxxxxx' } },
+    puzzle:    { bpm: 126, scale: 'harm',     root: 64, prog: [0, 3, 4, 0], lead: 'square',   leadVol: .04, density: .7,  bass: 'bounce', bassType: 'triangle', swing: 0, drums: { k: 'x...x...', s: '....x...', h: 'x.x.x.x.' } },
+    synthwave: { bpm: 108, scale: 'minor',    root: 57, prog: [0, 5, 2, 6], lead: 'sawtooth', leadVol: .028, density: .45, bass: 'eighth', bassType: 'sawtooth', pad: 'sawtooth', swing: 0, drums: { k: 'x...x...', s: '....x...', h: '.x.x.x.x' } },
+    bouncy:    { bpm: 128, scale: 'major',    root: 65, prog: [0, 4, 5, 3], lead: 'triangle', leadVol: .07, density: .65, bass: 'bounce', bassType: 'square', swing: .1, drums: { k: 'x...x...', s: '....x...', h: 'x.x.x.x.' } },
+    teahouse:  { bpm: 80,  scale: 'penta',    root: 62, prog: [0, 3, 1, 0], lead: 'pluck',    leadVol: .09, density: .42, bass: 'root',   bassType: 'sine', pad: 'sine', swing: .08, drums: { w: '..x...x.' } },
+    epic:      { bpm: 72,  scale: 'pentaMin', root: 57, prog: [0, 3, 2, 0], lead: 'pluck',    leadVol: .09, density: .45, bass: 'root',   bassType: 'triangle', pad: 'sawtooth', swing: 0, drums: { t: 'x.....x.', w: '....x...' } },
+    jazz:      { bpm: 96,  scale: 'dorian',   root: 62, prog: [1, 4, 0, 5], lead: 'vibes',    leadVol: .07, density: .5,  bass: 'walk',   bassType: 'triangle', pad: 'triangle', seventh: true, swing: .3, drums: { k: 'x.......', h: 'x.xx.xx.' } },
+    rock:      { bpm: 136, scale: 'pentaMin', root: 52, prog: [0, 2, 3, 1], lead: 'power',    leadVol: .035, density: .55, bass: 'eighth', bassType: 'sawtooth', swing: 0, drums: { k: 'x.x...x.', s: '....x...', h: 'xxxxxxxx' } },
+  };
+
+  const M = { on: false, paused: false, style: STYLES[CFG.style] ? CFG.style : 'chip', step: 0, next: 0, timer: null, mood: 0, motifs: null };
+  function rng(seed) { return function () { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  function newMotifs() {
+    const st = STYLES[M.style], r = rng(Math.random() * 1e9 | 0);
+    const make = () => {
+      const m = []; let cur = Math.floor(r() * 5);
+      for (let i = 0; i < 8; i++) {
+        if (r() > st.density * (i % 2 === 0 ? 1.15 : .8)) { m.push(null); continue; }
+        cur = Math.max(-2, Math.min(9, cur + [-2, -1, -1, 0, 1, 1, 2, 3][Math.floor(r() * 8)]));
+        m.push({ d: cur, long: r() < .25 });
+      }
+      return m;
+    };
+    M.motifs = [make(), make(), make()];
+  }
+  function mosc(type, f, t, dur, vol, attack) {
+    attack = Math.min(attack || .01, dur * .5);
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type; o.frequency.value = f;
+    g.gain.setValueAtTime(.0001, t);
+    g.gain.linearRampToValueAtTime(vol, t + attack);
+    g.gain.setValueAtTime(vol, t + Math.max(attack, dur * .6));
+    g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    o.connect(g); g.connect(musicBus); o.start(t); o.stop(t + dur + .05);
+    return o;
+  }
+  function lead(st, f, t, dur) {
+    const v = st.leadVol;
+    if (st.lead === 'pluck') {
+      const o = ctx.createOscillator(), g = ctx.createGain(), len = Math.max(dur, .8);
+      o.type = 'triangle'; o.frequency.setValueAtTime(f * 1.02, t); o.frequency.exponentialRampToValueAtTime(f, t + .05);
+      g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(.0001, t + len);
+      o.connect(g); g.connect(musicBus); o.start(t); o.stop(t + len + .05);
+    } else if (st.lead === 'vibes') {
+      mosc('sine', f, t, Math.max(dur, .9), v, .004);
+      mosc('sine', f * 4, t, .25, v * .18, .002);
+    } else if (st.lead === 'power') {
+      mosc('sawtooth', f / 2, t, dur, v); mosc('sawtooth', f / 2 * 1.5, t, dur, v * .8); mosc('square', f / 4, t, dur, v * .5);
+    } else {
+      mosc(st.lead, f, t, dur, v);
+    }
+  }
+  function kick(t) {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.frequency.setValueAtTime(140, t); o.frequency.exponentialRampToValueAtTime(42, t + .14);
+    g.gain.setValueAtTime(.32, t); g.gain.exponentialRampToValueAtTime(.0001, t + .22);
+    o.connect(g); g.connect(musicBus); o.start(t); o.stop(t + .25);
+  }
+  function tom(t) {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.frequency.setValueAtTime(110, t); o.frequency.exponentialRampToValueAtTime(62, t + .3);
+    g.gain.setValueAtTime(.3, t); g.gain.exponentialRampToValueAtTime(.0001, t + .45);
+    o.connect(g); g.connect(musicBus); o.start(t); o.stop(t + .5);
+  }
+  function playStep(st, step, t, sd) {
+    const bar = Math.floor(step / 8), i = step % 8;
+    if (i === 0 && bar > 0 && bar % 16 === 0) newMotifs();
+    if (i % 2 === 1) t += st.swing * sd;
+    const sc = SCALES[st.scale], n = sc.length, deg = st.prog[bar % st.prog.length];
+    const note = (d, oct) => st.root + oct * 12 + sc[((d % n) + n) % n] + 12 * Math.floor(d / n);
+    const dr = st.drums || {};
+    if (dr.k && dr.k[i] === 'x') kick(t);
+    if (dr.s && dr.s[i] === 'x') { noise(musicBus, t, .14, .11, 'bandpass', 1800, 0, .7); mosc('triangle', 190, t, .08, .05, .002); }
+    if (dr.h && (dr.h[i] === 'x' || (M.mood > .5 && i % 2 === 1))) noise(musicBus, t, st.swing > .2 ? .05 : .035, st.swing > .2 ? .03 : .045, 'highpass', 7500);
+    if (dr.w && dr.w[i] === 'x') mosc('sine', 1250, t, .05, .08, .002);
+    if (dr.t && dr.t[i] === 'x') tom(t);
+    if (st.pad && i === 0) {
+      [0, 2, 4].concat(st.seventh ? [6] : []).forEach(k => mosc(st.pad, mf(note(deg + k, 0)), t, sd * 7.8, .018, .3));
+    }
+    const bt = st.bassType, bv = .085, r = note(deg, -1);
+    if (st.bass === 'root' && (i === 0 || i === 4)) mosc(bt, mf(r), t, sd * 3.6, bv);
+    if (st.bass === 'octave' && i % 2 === 0) mosc(bt, mf(i % 4 === 0 ? r : r + 12), t, sd * .9, bv * .7);
+    if (st.bass === 'eighth') mosc(bt, mf(r), t, sd * .8, bv * .6);
+    if (st.bass === 'bounce' && i % 2 === 0) mosc(bt, mf(i % 4 === 0 ? r : note(deg + 4, -1)), t, sd * .7, bv);
+    if (st.bass === 'walk' && i % 2 === 0) mosc(bt, mf(note(deg + [0, 2, 4, 5][i / 2], -1)), t, sd * 1.8, bv);
+    const ev = M.motifs[[0, 0, 1, 0, 0, 0, 1, 2][bar % 8]][i];
+    if (ev) {
+      let d = deg + ev.d;
+      if (i % 2 === 0) {   // 正拍對齊和弦音
+        const pos = (((d - deg) % n) + n) % n;
+        const best = [0, 2, 4, n].reduce((a, b) => Math.abs(b - pos) < Math.abs(a - pos) ? b : a);
+        d = d - pos + best;
+      }
+      lead(st, mf(note(d, 1)), t, ev.long ? sd * 1.9 : sd * .9);
+    } else if (st.arp) {
+      mosc('square', mf(note(deg + [0, 2, 4, 7][i % 4], 1)), t, sd * .6, .015);
+    }
+  }
+  function schedule() {
+    if (!ctx || !M.on) return;
+    const st = STYLES[M.style], sd = 60 / (st.bpm * (1 + .22 * M.mood)) / 2;
+    if (M.next < ctx.currentTime - .2) M.next = ctx.currentTime + .05;   // 分頁被暫停過就別一次補一大串
+    while (M.next < ctx.currentTime + .15) {
+      try { playStep(st, M.step, M.next, sd); } catch (e) {}
+      M.next += sd; M.step++;
+    }
+  }
+  function startMusic() {
+    if (CFG.ownMusic || !S.music || M.paused || M.on || !unlocked || !ensure()) return;
+    if (!M.motifs) newMotifs();
+    M.on = true; M.step = 0; M.next = ctx.currentTime + .1;
+    M.timer = setInterval(schedule, 25);
+  }
+  function stopMusic() { M.on = false; clearInterval(M.timer); }
+
+  function unlock() {
+    if (unlocked) return;
+    unlocked = true;
+    ensure(); startMusic();
+  }
+  window.addEventListener('pointerdown', unlock, true);
+  window.addEventListener('keydown', unlock, true);
+  document.addEventListener('visibilitychange', () => {
+    if (!ctx) return;
+    if (document.hidden) ctx.suspend(); else if (unlocked) ctx.resume();
+  });
+
+  // 一般按鈕自動有點擊聲，遊戲不用自己加
+  document.addEventListener('click', e => {
+    const el = e.target;
+    if (!el || !el.closest || el.id === 'game-audio-dock') return;
+    if (el.closest('button, [role="button"], select, input[type="checkbox"], input[type="radio"], summary')) sfx('click');
+  }, true);
+
+  /* ---------- 開關按鈕（Shadow DOM，不會被遊戲的 CSS 影響） ---------- */
+  function buildDock() {
+    if (document.getElementById('game-audio-dock')) return;
+    const host = document.createElement('div');
+    host.id = 'game-audio-dock';
+    const corner = { bl: 'left:12px;bottom:12px;', tr: 'right:12px;top:12px;', tl: 'left:12px;top:12px;' }[CFG.pos] || 'right:12px;bottom:12px;';
+    host.style.cssText = 'position:fixed;z-index:2147483000;' + corner;
+    const pos = load(KEY + ':pos:' + CFG.id);
+    const place = (x, y) => {
+      x = Math.max(4, Math.min(innerWidth - 44, x)); y = Math.max(4, Math.min(innerHeight - 44, y));
+      host.style.left = x + 'px'; host.style.top = y + 'px'; host.style.right = 'auto'; host.style.bottom = 'auto';
+    };
+    if (pos) place(pos.x, pos.y);
+    // 沒被拖過時，自動挑一個底下沒有按鈕的角落（手機上右下角常常剛好是遊戲的按鈕或格子）
+    // 畫面會換（開局、捲動、跳窗），所以定期檢查：目前的角落被占了才搬
+    let spot = null, busyOnce = false;
+    const autoPlace = (force) => {
+      if (load(KEY + ':pos:' + CFG.id) || drag || (panel && !panel.hidden)) return;
+      const s = innerWidth <= 600 ? 34 : 40, m = 12;
+      const xy = { br: [innerWidth - s - m, innerHeight - s - m], bl: [m, innerHeight - s - m], tr: [innerWidth - s - m, m], tl: [m, m] };
+      const order = [CFG.pos, 'br', 'bl', 'tr', 'tl'].filter((v, i, a) => xy[v] && a.indexOf(v) === i);
+      const busy = (x, y) => [[x + 3, y + 3], [x + s - 3, y + 3], [x + 3, y + s - 3], [x + s - 3, y + s - 3], [x + s / 2, y + s / 2]].some(([px, py]) => {
+        const el = document.elementFromPoint(px, py);
+        return el && el !== host && el.closest && el.closest('button, a[href], input, select, textarea, [role="button"], summary, label');
+      });
+      host.style.visibility = 'hidden';
+      let pick = spot;
+      if (force === true || !spot || busy(...xy[spot])) {
+        // 一閃而過的按鈕不追：連續兩次都被占才搬
+        if (force !== true && spot && !busyOnce) { busyOnce = true; host.style.visibility = ''; return; }
+        pick = order.find((c) => !busy(...xy[c])) || spot || order[0];
+      }
+      busyOnce = false;
+      host.style.visibility = '';
+      spot = pick;
+      place(...xy[pick]);
+    };
+    setTimeout(() => autoPlace(true), 500);
+    setInterval(autoPlace, 1500);
+    const root = host.attachShadow({ mode: 'open' });
+    root.innerHTML = `<style>
+      :host { all: initial; }
+      * { box-sizing: border-box; font-family: "Noto Sans TC", "Microsoft JhengHei", system-ui, sans-serif; }
+      .fab { width: 40px; height: 40px; border-radius: 50%; border: 1px solid rgba(255,255,255,.22); cursor: grab; touch-action: none;
+        background: rgba(18,20,26,.78); color: #fff; display: grid; place-items: center; padding: 0;
+        box-shadow: 0 4px 14px rgba(0,0,0,.35); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+      .fab:hover { background: rgba(38,42,52,.9); }
+      .fab:focus-visible, input:focus-visible { outline: 2px solid #ffc94a; outline-offset: 2px; }
+      .fab svg { width: 20px; height: 20px; }
+      @media (max-width: 600px) { .fab { width: 34px; height: 34px; opacity: .85; } .fab svg { width: 17px; height: 17px; } }
+      .fab .slash { display: none; }
+      .fab.off .slash { display: inline; }
+      .fab.off .note { opacity: .45; }
+      .panel { position: absolute; width: 200px; padding: 12px 14px; border-radius: 12px; background: #1b1e25; color: #eef1f5;
+        border: 1px solid rgba(255,255,255,.14); box-shadow: 0 12px 30px rgba(0,0,0,.45); display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
+      .panel[hidden] { display: none; }
+      .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; font-weight: 600; }
+      .row input { width: 16px; height: 16px; accent-color: #ffc94a; margin: 0; cursor: pointer; }
+      input[type=range] { width: 100%; accent-color: #ffc94a; margin: 0 0 4px; }
+      input[type=range]:disabled { opacity: .35; }
+      .tip { margin: 2px 0 0; font-size: 11px; color: #9aa4b1; line-height: 1.4; }
+    </style>
+    <button class="fab" type="button" aria-label="音樂與音效設定" aria-expanded="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <g class="note"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></g>
+        <line class="slash" x1="3" y1="3" x2="21" y2="21"/>
+      </svg>
+    </button>
+    <div class="panel" hidden>
+      <label class="row"><span>背景音樂</span><input type="checkbox" data-k="music"></label>
+      <input type="range" min="0" max="1" step="0.05" data-v="mvol" aria-label="音樂音量">
+      <label class="row"><span>音效</span><input type="checkbox" data-k="sfx"></label>
+      <input type="range" min="0" max="1" step="0.05" data-v="svol" aria-label="音效音量">
+      <p class="tip">拖曳這顆按鈕可以移到別的位置</p>
+    </div>`;
+    const fab = root.querySelector('.fab'), panel = root.querySelector('.panel');
+    const sync = () => {
+      root.querySelectorAll('[data-k]').forEach(el => el.checked = S[el.dataset.k]);
+      root.querySelectorAll('[data-v]').forEach(el => { el.value = S[el.dataset.v]; el.disabled = !S[el.dataset.v === 'mvol' ? 'music' : 'sfx']; });
+      fab.classList.toggle('off', !S.music && !S.sfx);
+    };
+    root.addEventListener('change', e => {
+      const k = e.target.dataset.k;
+      if (!k) return;
+      S[k] = e.target.checked; store(KEY, S);
+      ensure(); applyVol();
+      if (k === 'music') { if (S.music) { unlocked = true; startMusic(); } else stopMusic(); }
+      if (k === 'sfx' && S.sfx) sfx('click');
+      sync(); notify();
+    });
+    root.addEventListener('input', e => {
+      const v = e.target.dataset.v;
+      if (!v) return;
+      S[v] = +e.target.value; store(KEY, S); applyVol(); notify();
+    });
+    const openPanel = open => {
+      panel.hidden = !open; fab.setAttribute('aria-expanded', String(open));
+      if (!open) return;
+      const r = host.getBoundingClientRect();
+      panel.style.top = r.top < 230 ? '48px' : 'auto';
+      panel.style.bottom = r.top < 230 ? 'auto' : '48px';
+      panel.style.left = r.left < 170 ? '0' : 'auto';
+      panel.style.right = r.left < 170 ? 'auto' : '0';
+    };
+    let drag = null;
+    fab.addEventListener('pointerdown', e => {
+      const r = host.getBoundingClientRect();
+      drag = { sx: e.clientX, sy: e.clientY, ox: r.left, oy: r.top, moved: false };
+      fab.setPointerCapture(e.pointerId);
+    });
+    fab.addEventListener('pointermove', e => {
+      if (!drag) return;
+      const dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
+      if (!drag.moved && Math.hypot(dx, dy) < 6) return;
+      drag.moved = true; openPanel(false); place(drag.ox + dx, drag.oy + dy);
+    });
+    fab.addEventListener('pointerup', () => {
+      if (!drag) return;
+      if (drag.moved) { const r = host.getBoundingClientRect(); store(KEY + ':pos:' + CFG.id, { x: r.left, y: r.top }); }
+      else openPanel(panel.hidden);
+      drag = null;
+    });
+    fab.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPanel(panel.hidden); } });
+    ['pointerdown', 'click', 'keydown', 'keyup', 'wheel'].forEach(ev => host.addEventListener(ev, e => e.stopPropagation()));
+    document.addEventListener('pointerdown', e => { if (!panel.hidden && !e.composedPath().includes(host)) openPanel(false); });
+    window.addEventListener('resize', () => { const p = load(KEY + ':pos:' + CFG.id); if (p) place(p.x, p.y); else autoPlace(true); });
+    sync();
+    (document.body || document.documentElement).appendChild(host);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', buildDock); else buildDock();
+
+  window.GameAudio = {
+    sfx,
+    music(style) {
+      if (style === false) { M.paused = true; stopMusic(); return; }
+      if (style && STYLES[style] && style !== M.style) { M.style = style; newMotifs(); }
+      M.paused = false; startMusic();
+    },
+    mood(x) { M.mood = Math.max(0, Math.min(1, +x || 0)); },
+    get sfxOn() { return S.sfx; },
+    get musicOn() { return S.music; },
+    get musicVol() { return S.mvol; },
+    names: Object.keys(SFX),
+    styles: Object.keys(STYLES),
+  };
+})();
+
+</script>
+<!-- GAME-AUDIO:END -->
 <script>
 /* ==================================================================
    十六張 —— 台灣麻將
@@ -495,6 +969,11 @@
    胡牌判定走 DFS 拆牌＋雜湊快取（規格裡的 Hand-Code 查表想法）。
    ================================================================== */
 const $ = (id) => document.getElementById(id);
+
+/* 共用音訊套件（外部注入 window.GameAudio）；沒有套件時什麼都不做 */
+function gaSfx(n, o) { if (window.GameAudio) window.GameAudio.sfx(n, o); }
+function gaMood(x) { if (window.GameAudio) window.GameAudio.mood(x); }
+const gaMuted = () => !!(window.GameAudio && !window.GameAudio.sfxOn);
 
 /* ---------- 亂數（可指定種子，測試才能重現同一局） ---------- */
 let seed = (Math.random() * 4294967296) >>> 0;
@@ -900,7 +1379,7 @@ const OPT = {
   rake: 0,            // 抽水率 %
   mode: 1,            // 0 單局 1 一圈 2 一將
   thinkMin: 1500, thinkMax: 4200,          // 電腦的思考時間（原本 500/1400，拉長三倍）
-  claimMs: 9000,      // 你可以考慮吃碰槓的時間（原本 3000，拉長三倍；0 = 不限時）
+  claimMs: 11000,     // 你可以考慮吃碰槓的時間（原本 3000→9000，使用者再要求多 2 秒；0 = 不限時）
   sound: 1,           // 遊戲音效（打牌、吃碰槓胡、提示）
   vol: 0.6,           // 音效音量
   music: 1,           // 背景音樂（同樣是當場合成，沒有外部音檔）
@@ -1005,6 +1484,8 @@ function newHand(keepDealer) {
   for (let i = 0; i < 4; i++) replaceFlowers(i);
   for (let i = 0; i < 4; i++) sortHand(i);
   S.phase = "play";
+  if (OPT.sound) gaSfx("shuffle");            // 開局洗牌
+  gaMood(0.1);
   log(`🀄 <b>${WINDS[S.roundWind]}圈 第 ${S.hand} 局</b>　莊家：${seatName(S.dealer)}` +
       (S.streak ? `（連莊 ${S.streak}）` : ""));
   render();
@@ -1495,7 +1976,8 @@ function meldsEl(seat, size) {
 }
 function whoEl(seat) {
   const d = document.createElement("div");
-  d.className = "who" + (S.turn === seat && !S.over ? " turn" : "");
+  d.className = "who" + (S.turn === seat && !S.over ? " turn" : "") + (vTalkingSeat(seat) ? " talking" : "");
+  d.dataset.vseat = seat;                  // 語音：誰按住說話就在名牌上亮起來，不用整張桌子重畫
   const wind = WINDS[seatWind(seat)];
   const sus = Math.round(tenpaiSuspicion(seat) * 100);
   d.innerHTML = `<b>${seatName(seat)}</b><span>${wind}家${seat === S.dealer ? "・莊" : ""}</span>` +
@@ -1569,6 +2051,9 @@ function render() {
   mk("2", "2", c);
   mk("2", "3", pondEl(ME), whoEl(ME));
   B.appendChild(g);
+  /* 牌河超過兩三排就要捲。每次重畫都是新的元素、捲軸回到最上面，
+     最新打出來的那幾張反而藏在下面得自己去滑 —— 一律捲到底，最新的一排永遠露出來。 */
+  B.querySelectorAll(".pond").forEach((p) => { p.scrollTop = p.scrollHeight; });
 
   // 自己的手牌：畫到縮放區外的 myzone，不跟著牌桌縮小
   const MZ = $("myzone"); MZ.innerHTML = "";
@@ -1674,23 +2159,44 @@ function tryAutoWin() {
   return true;
 }
 function renderActs() {
-  stopClaimTick();
-  const A0x = $("acts");
-  if (A0x) A0x.classList.remove("pop");
+  const A = $("acts");
   if (tryAutoWin()) {
-    const A0 = $("acts");
-    A0.innerHTML = '<div style="font-size:14px;color:var(--good);font-weight:700;align-self:center">🎉 胡了！自動幫你叫牌…</div>';
+    stopClaimTick(); A.dataset.sig = ""; A.classList.remove("pop", "sent");
+    A.innerHTML = '<div style="font-size:14px;color:var(--good);font-weight:700;align-self:center">🎉 胡了！自動幫你叫牌…</div>';
     return;
   }
-  const A = $("acts"); A.innerHTML = "";
+  const myClaim = (!S.over && S.claim && S.claim.need[ME] !== undefined && S.claim.got[ME] === undefined)
+    ? S.claim.need[ME] : null;
+  const mySelf = (!S.over && !myClaim && S.pending && S.pending.kind === "self" && S.pending.seat === ME)
+    ? S.pending.opts : null;
+  /* 吃碰槓的視窗只在「選項真的變了」才重建。
+     以前每次重畫（別人傳一句聊天、房主送來新畫面）都整個拆掉重做，
+     手指按下去的那一刻按鈕剛好被換掉，這一下就等於沒按 —— 手機上看起來就是視窗卡住。 */
+  const sig = myClaim ? "c|" + S.claim.tile + "|" + S.claim.from + "|" + (S.ponds[S.claim.from] || []).length + "|" + JSON.stringify(myClaim)
+    : mySelf ? "s|" + S.drawn + "|" + JSON.stringify(mySelf) : "";
+  if (sig && A.dataset.sig === sig && A.classList.contains("pop")) return;
+  stopClaimTick();
+  A.dataset.sig = sig;
+  A.classList.remove("pop", "sent");
+  A.innerHTML = "";
   const mk = (txt, cls, fn) => {
     const b = document.createElement("button");
-    b.className = "btn " + (cls || ""); b.textContent = txt; b.onclick = fn;
+    b.type = "button"; b.className = "btn " + (cls || ""); b.textContent = txt;
+    /* 手指一碰到就算數（pointerdown），不等放開後的 click：倒數在跑、畫面在更新，
+       iOS 會把「按下到放開之間畫面有變」的點擊吞掉。preventDefault 讓焦點留在聊天框，
+       正在打的字跟鍵盤都不受影響。送出後淡一下，1.5 秒內沒回應可以再按一次。 */
+    let done = false;
+    const go = () => {
+      if (done) return;
+      done = true; A.classList.add("sent");
+      setTimeout(() => { done = false; A.classList.remove("sent"); }, 1500);
+      fn();
+    };
+    b.addEventListener("pointerdown", (e) => { if (e.button > 0) return; e.preventDefault(); go(); });
+    b.onclick = go;
     A.appendChild(b); return b;
   };
   if (S.over) return;
-  const myClaim = (S.claim && S.claim.need[ME] !== undefined && S.claim.got[ME] === undefined)
-    ? S.claim.need[ME] : null;
   if (myClaim) {
     A.classList.add("pop");          // 有得吃碰槓胡就浮到畫面中下方
     const seen = new Set();
@@ -1703,28 +2209,26 @@ function renderActs() {
       mk(label, o.type === "win" ? "win" : "go", () => takeClaim(o));
     }
     mk("過", "", () => passClaim());
-    // 倒數：原本完全沒有提示，牌一閃就過去了，根本不知道自己有多久可以想
-    stopClaimTick();
+    /* 倒數：節點只建一次，之後只改文字和長條寬度。
+       以前每 0.1 秒整段 innerHTML 重寫，視窗寬度跟著跳，按鈕會一直微微移動。 */
     const cd = document.createElement("div");
     cd.className = "claimcd";
+    cd.innerHTML = '<span class="t"></span><span class="bar"><i></i></span>';
     A.appendChild(cd);
+    const tx = cd.querySelector(".t"), bar = cd.querySelector(".bar"), fill = cd.querySelector(".bar i");
     const paint = () => {
       if (!S.claim || S.claim.got[ME] !== undefined) { stopClaimTick(); return; }
-      if (!S.claim.until) {
-        cd.innerHTML = `<span class="t">不限時，慢慢想</span>`;
-        return;
-      }
+      if (!S.claim.until) { tx.textContent = "不限時，慢慢想"; bar.hidden = true; return; }
       const left = Math.max(0, S.claim.until - Date.now());
-      const pct = Math.max(0, Math.min(100, left / OPT.claimMs * 100));
-      cd.innerHTML =
-        `<span class="t${left < 3000 ? " hot" : ""}">還有 ${(left / 1000).toFixed(1)} 秒</span>` +
-        `<span class="bar"><i style="width:${pct}%"></i></span>`;
+      tx.textContent = `還有 ${(left / 1000).toFixed(1)} 秒`;
+      tx.classList.toggle("hot", left < 3000);
+      fill.style.width = Math.max(0, Math.min(100, left / OPT.claimMs * 100)).toFixed(1) + "%";
     };
     paint();
     claimTick = setInterval(paint, 100);
     return;
   }
-  if (S.pending && S.pending.kind === "self" && S.pending.seat === ME) {
+  if (mySelf) {
     A.classList.add("pop");          // 自摸／暗槓／加槓同樣浮出來
     for (const o of S.pending.opts) {
       if (o.type === "win") mk("自摸", "win", () => act({ kind: "self", opt: o }));
@@ -1769,11 +2273,15 @@ function waitInfo() {
   }));
   return { sh: 0, toss, waits };
 }
+let gaWasTen = false;                        // 上次畫面是否已聽牌，只在剛聽牌那一下響
 function renderTenpai() {
   const box = $("tenpai");
   if (!box) return;
   box.innerHTML = "";
   const info = waitInfo();
+  const ten = !!(info && info.sh === 0);
+  if (ten && !gaWasTen && OPT.sound) gaSfx("tick");
+  gaWasTen = ten;
   if (!info) { box.innerHTML = '<div class="tenfoot">等發牌…</div>'; return; }
   const head = document.createElement("div");
   head.className = "tenhead";
@@ -1878,6 +2386,14 @@ function fitBoard(force) {
 }
 let fitT = null;
 addEventListener("resize", () => { clearTimeout(fitT); fitT = setTimeout(() => fitBoard(true), 80); });
+/* 手機鍵盤打開時，可見範圍比版面小，底部固定的吃碰視窗會被鍵盤蓋住。
+   量出被蓋掉的高度存成 --kb，視窗就墊高到鍵盤上面。 */
+if (window.visualViewport) {
+  const vv = window.visualViewport;
+  const kb = () => document.documentElement.style.setProperty("--kb",
+    Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop)) + "px");
+  vv.addEventListener("resize", kb); vv.addEventListener("scroll", kb); kb();
+}
 function syncHud() {
   $("hRound").textContent = WINDS[S.roundWind] + " " + S.hand;
   $("hLeft").textContent = S.wall.length;
@@ -2042,7 +2558,10 @@ function seatView(seat) {
     lastDiscard: S.lastDiscard, lastFrom: S.lastFrom,
     pending: (S.pending && S.pending.seat === seat) ? { kind: S.pending.kind, opts: S.pending.opts } : null,
     claim: S.claim ? {
-      tile: S.claim.tile, from: S.claim.from, until: S.claim.until,
+      /* 送「還剩幾毫秒」而不是房主的時鐘時間。每支手機的時鐘不一樣，
+         差個幾秒，客端的倒數就會一開始就是 0 或多出好幾秒。 */
+      tile: S.claim.tile, from: S.claim.from, until: S.claim.until ? 1 : 0,
+      left: S.claim.until ? Math.max(0, S.claim.until - Date.now()) : 0,
       opts: (S.claim.need[seat] !== undefined && S.claim.got[seat] === undefined) ? S.claim.need[seat] : null,
     } : null,
     opt: { claimMs: OPT.claimMs, base: OPT.base, tai: OPT.tai, rake: OPT.rake, mode: OPT.mode, chips0: OPT.chips0 },
@@ -2068,7 +2587,9 @@ function applyView(v) {
   S.lastFrom = (v.lastFrom === undefined) ? -1 : v.lastFrom;
   S.pending = v.pending ? { seat: v.me, kind: v.pending.kind, opts: v.pending.opts } : null;
   S.claim = v.claim
-    ? { tile: v.claim.tile, from: v.claim.from, until: v.claim.until,
+    ? { tile: v.claim.tile, from: v.claim.from,
+        // 用自己的時鐘換算；扣 0.25 秒網路延遲，免得客端顯示還有時間、房主那邊其實已經截止
+        until: v.claim.left == null ? v.claim.until : (v.claim.until ? Date.now() + Math.max(0, v.claim.left - 250) : 0),
         need: v.claim.opts ? { [v.me]: v.claim.opts } : {}, got: {}, ai: [] }
     : null;
   Object.assign(OPT, v.opt);
@@ -2114,6 +2635,7 @@ const SFX = (() => {
   }
   const vol = () => (OPT.sound ? Math.max(0, Math.min(1, OPT.vol)) : 0);
   function tone(type, f0, dur, amp, f1, delay) {
+    if (gaMuted()) return;                     // 共用音訊開關也要開才出聲
     const a = ctx(); if (!a || !vol()) return;
     const t0 = a.currentTime + (delay || 0);
     const o = a.createOscillator(), g = a.createGain();
@@ -2127,6 +2649,7 @@ const SFX = (() => {
     o.start(t0); o.stop(t0 + dur + 0.03);
   }
   function noise(dur, amp, cut, sweep, delay) {
+    if (gaMuted()) return;
     const a = ctx(); if (!a || !vol()) return;
     const t0 = a.currentTime + (delay || 0);
     const len = Math.max(1, Math.floor(a.sampleRate * dur));
@@ -2176,6 +2699,7 @@ const SFX = (() => {
            voices.find((v) => /^zh/i.test(v.lang)) || null;
   }
   function say(text, opt) {
+    if (gaMuted()) return;
     if (!OPT.voice || !OPT.sound || !window.speechSynthesis || !text) return;
     try {
       const u = new SpeechSynthesisUtterance(text);
@@ -2255,7 +2779,7 @@ const SFX = (() => {
   // 設定改了就跟著走；音量可以即時調，不用重開
   function musicSync() {
     if (!unlocked) return;                    // 還沒互動過，瀏覽器不准出聲
-    if (OPT.music && OPT.musicVol > 0) {
+    if (OPT.music && OPT.musicVol > 0 && !(window.GameAudio && !window.GameAudio.musicOn)) {   // 角落共用開關的音樂也要是開的
       if (!mOn) musicStart();
       else if (mGain) mGain.gain.value = Math.max(0, Math.min(1, OPT.musicVol));
     } else if (mOn) musicStop();
@@ -2266,6 +2790,7 @@ const SFX = (() => {
     else musicSync();
   });
   function unlockAll() { unlock(); musicSync(); }
+  addEventListener("gameaudiochange", musicSync);
   addEventListener("pointerdown", unlockAll, { once: true, capture: true });
   addEventListener("keydown", unlockAll, { once: true, capture: true });
   return { play, say, unlock: unlockAll, musicSync, musicPlaying: () => mOn, ctx };
@@ -2328,7 +2853,13 @@ function playEvents() {
       if (OPT.sayTile && e.tile !== undefined && e.tile !== null) SFX.say(tileName(e.tile));
       continue;
     }
-    if (e.k === "draw") { if (e.seat === ME) SFX.play("draw"); continue; }
+    if (e.k === "draw") {
+      if (e.seat === ME) SFX.play("draw");
+      if (S.wall && S.wall.length < 20) gaMood(0.6);   // 牌快摸完，氣氛緊一點
+      continue;
+    }
+    // 自己放槍
+    if (e.k === "hu" && e.from === ME && e.seat !== ME && OPT.sound) gaSfx("lose");
     if (e.k === "drawgame") { SFX.play("drawgame"); shout("流局", "沒有人胡", ""); continue; }
     if (SHOUT_WORD[e.k]) {
       const kind = (e.k === "hu" || e.k === "tsumo") ? "hu" : (e.k === "kong" || e.k === "ankong") ? "kong" : e.k === "chow" ? "chow" : "";
@@ -2419,7 +2950,8 @@ function bindChat() {
     act({ kind: "chat", text: v });
   };
   btn.onclick = send;
-  inp.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); send(); } };
+  // 注音／倉頡選字時按的 Enter 是在確認選字，不是送出（否則只打一半的字就被送出去、輸入框被清空）
+  inp.onkeydown = (e) => { if (e.key === "Enter" && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); send(); } };
   if (q) q.innerHTML = QUICK.map((x) => '<button type="button">' + esc(x) + "</button>").join("");
   if (q) q.querySelectorAll("button").forEach((b, i) => { b.onclick = () => act({ kind: "chat", text: QUICK[i] }); });
 
@@ -2576,9 +3108,288 @@ function syncSeats() {
   if (mine >= 0 && ME !== mine) { ME = mine; changed = true; }
   if (changed) render();
 }
+/* ====================================================================
+   語音：按住說話
+   伺服器只幫忙轉交連線握手（WebRTC 的 offer／answer／ICE），聲音是手機對手機直接傳，
+   不經過伺服器。四個人彼此各連一條。單機版沒有連線，這一整段不會啟動。
+   用 function 宣告與 var：牌桌第一次畫的時候這段可能還沒跑到，不能碰到還沒初始化的 const。
+   ==================================================================== */
+var VC = null, VC_BOUND = false;
+var VOICE_ICE = [{ urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] },
+                 { urls: "stun:stun.cloudflare.com:3478" }];
+function vEsc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+function vState() {
+  if (!VC) VC = { on: false, mic: null, micErr: "", talking: false, talkT: null, peers: {}, inVoice: {}, talk: {},
+                  vol: {}, mute: {}, told: {}, myPeer: null, blocked: false };
+  return VC;
+}
+function vOnline() { return NET.mode !== "solo" && !!NET.send && !!NET.peer; }
+function vInitiator(id) { return String(NET.peer) < String(id); }   // 兩人之間固定由 id 小的那邊發起，避免雙方同時撥
+function vTalkingSeat(seat) {
+  if (!VC || !S.seatPeer) return false;
+  const p = S.seatPeer[seat];
+  if (!p) return false;
+  return p === NET.peer ? VC.talking : !!VC.talk[p];
+}
+function vSend(id, obj) { if (NET.send) NET.send(id, Object.assign({ t: "rtc" }, obj)); }
+
+async function voiceJoin() {
+  const V = vState();
+  if (V.on) { voiceLeave(); return; }
+  if (!vOnline()) return;
+  V.on = true; V.micErr = ""; V.told = {};
+  voiceUI();
+  try {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw Object.assign(new Error("no"), { name: "NoMedia" });
+    const mic = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+    mic.getAudioTracks().forEach((t) => { t.enabled = false; });      // 預設靜音，按住才開
+    if (!V.on) { mic.getTracks().forEach((t) => t.stop()); return; }  // 等權限的時候已經按了離開
+    V.mic = mic;
+  } catch (e) {
+    V.mic = null;
+    V.micErr = !window.isSecureContext ? "這個網址不是 https，瀏覽器不給麥克風，只能聽別人講"
+      : e && e.name === "NotAllowedError" ? "沒有麥克風權限，只能聽別人講（到瀏覽器設定允許麥克風就能說話）"
+      : "找不到麥克風，只能聽別人講";
+  }
+  if (!V.on) return;
+  for (const id in V.peers) vAttachMic(V.peers[id]);
+  voiceSync();
+}
+function voiceLeave() {
+  const V = VC; if (!V) return;
+  voiceTalk(false);
+  for (const id of Object.keys(V.told)) vSend(id, { k: "off" });
+  for (const id of Object.keys(V.peers)) vClose(id);
+  if (V.mic) V.mic.getTracks().forEach((t) => t.stop());
+  V.mic = null; V.on = false; V.told = {}; V.micErr = ""; V.blocked = false;
+  voiceUI();
+}
+function vPeer(id) {
+  const V = vState();
+  if (V.peers[id]) return V.peers[id];
+  const pc = new RTCPeerConnection({ iceServers: VOICE_ICE });
+  const p = V.peers[id] = { id, pc, cand: [], audio: null, tx: null, state: "連線中", restarted: false };
+  pc.onicecandidate = (e) => { if (e.candidate) vSend(id, { k: "ice", c: e.candidate.toJSON ? e.candidate.toJSON() : e.candidate }); };
+  pc.ontrack = (e) => {
+    if (!p.audio) { p.audio = new Audio(); p.audio.autoplay = true; p.audio.setAttribute("playsinline", ""); }
+    p.audio.srcObject = (e.streams && e.streams[0]) || new MediaStream([e.track]);
+    vApplyVol(id); vPlay(p);
+  };
+  pc.onconnectionstatechange = () => {
+    const s = pc.connectionState;
+    p.state = s === "connected" ? "已連上" : s === "failed" ? "連不上" : s === "disconnected" ? "斷線中" : s === "closed" ? "已關閉" : "連線中";
+    // 失敗就由發起的那邊重試一次（換一組網路路徑）
+    if (s === "failed" && vInitiator(id) && !p.restarted) { p.restarted = true; vOffer(p, true); }
+    voiceUI();
+  };
+  return p;
+}
+function vAttachMic(p) {
+  const V = vState(), track = V.mic ? V.mic.getAudioTracks()[0] : null;
+  const tx = p.tx || p.pc.getTransceivers()[0];
+  if (!tx) return;
+  p.tx = tx;
+  try { if (tx.direction !== "sendrecv") tx.direction = "sendrecv"; } catch (e) {}
+  if (tx.sender.track !== track) tx.sender.replaceTrack(track).catch(() => {});
+}
+async function vOffer(p, restart) {
+  try {
+    if (!p.tx) p.tx = p.pc.addTransceiver("audio", { direction: "sendrecv" });
+    vAttachMic(p);
+    const offer = await p.pc.createOffer(restart ? { iceRestart: true } : undefined);
+    await p.pc.setLocalDescription(offer);
+    vSend(p.id, { k: "sdp", d: { type: p.pc.localDescription.type, sdp: p.pc.localDescription.sdp } });
+  } catch (e) { p.state = "連不上"; voiceUI(); }
+}
+function vClose(id) {
+  const V = VC; if (!V || !V.peers[id]) return;
+  const p = V.peers[id];
+  try { p.pc.close(); } catch (e) {}
+  if (p.audio) { try { p.audio.pause(); } catch (e) {} p.audio.srcObject = null; }
+  delete V.peers[id];
+}
+function vPlay(p) {
+  if (!p.audio) return;
+  const r = p.audio.play();
+  if (r && r.catch) r.catch(() => { if (VC) { VC.blocked = true; voiceUI(); } });
+}
+function vApplyVol(id) {
+  const V = VC, p = V && V.peers[id];
+  if (!p || !p.audio) return;
+  p.audio.muted = !!V.mute[id];
+  p.audio.volume = V.vol[id] == null ? 1 : V.vol[id];
+}
+async function voiceRecv(from, m) {
+  const V = vState();
+  if (m.k === "on") {
+    V.inVoice[from] = true;
+    if (V.on) {
+      if (!m.re) { vSend(from, { k: "on", re: 1 }); V.told[from] = true; }
+      if (vInitiator(from)) { const p = vPeer(from); if (!p.pc.remoteDescription && p.pc.signalingState === "stable") vOffer(p); }
+      else vPeer(from);
+    }
+    voiceUI(); return;
+  }
+  if (m.k === "off") { V.inVoice[from] = false; V.talk[from] = false; vClose(from); voiceUI(); return; }
+  if (m.k === "talk") { V.talk[from] = !!m.on; vPaintTalk(); return; }
+  if (!V.on) return;
+  if (m.k === "sdp" && m.d && m.d.sdp) {
+    const p = vPeer(from), pc = p.pc;
+    try {
+      if (m.d.type === "offer") {
+        if (pc.signalingState !== "stable") await pc.setLocalDescription({ type: "rollback" });
+        await pc.setRemoteDescription(m.d);
+        vAttachMic(p);
+        await pc.setLocalDescription(await pc.createAnswer());
+        vSend(from, { k: "sdp", d: { type: pc.localDescription.type, sdp: pc.localDescription.sdp } });
+      } else if (m.d.type === "answer") {
+        if (pc.signalingState !== "have-local-offer") return;
+        await pc.setRemoteDescription(m.d);
+      }
+      for (const c of p.cand.splice(0)) await pc.addIceCandidate(c).catch(() => {});
+    } catch (e) { p.state = "連不上"; voiceUI(); }
+    return;
+  }
+  if (m.k === "ice" && m.c) {
+    const p = V.peers[from]; if (!p) return;
+    if (p.pc.remoteDescription) p.pc.addIceCandidate(m.c).catch(() => {}); else p.cand.push(m.c);
+  }
+}
+/* 按住說話：麥克風軌道一直連著，只切 enabled。放開就是完全靜音（送出去的是無聲）。 */
+function voiceTalk(on) {
+  const V = VC; if (!V) return;
+  on = !!on && V.on && !!V.mic;
+  if (V.talking === on) return;
+  V.talking = on;
+  if (V.mic) V.mic.getAudioTracks().forEach((t) => { t.enabled = on; });
+  clearTimeout(V.talkT);
+  if (on) V.talkT = setTimeout(() => voiceTalk(false), 90000);   // 手指離開卻沒收到放開事件時的保險
+  for (const id of Object.keys(V.told)) if (V.inVoice[id]) vSend(id, { k: "talk", on });
+  vPaintTalk();
+}
+function vBindPTT(el) {
+  if (!el) return;
+  const up = () => voiceTalk(false);
+  el.addEventListener("pointerdown", (e) => {
+    if (e.button > 0) return;
+    e.preventDefault();
+    try { el.setPointerCapture(e.pointerId); } catch (x) {}
+    voiceTalk(true);
+  });
+  el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up); el.addEventListener("lostpointercapture", up);
+  el.addEventListener("contextmenu", (e) => e.preventDefault());
+}
+function voiceBind() {
+  if (VC_BOUND) return;
+  VC_BOUND = true;
+  const jb = $("vJoin"); if (jb) jb.onclick = () => voiceJoin();
+  vBindPTT($("pttBtn")); vBindPTT($("pttBtn2")); vBindPTT($("pttFloat"));
+  const ub = $("vUnblock");
+  if (ub) ub.onclick = () => { if (!VC) return; VC.blocked = false; for (const id in VC.peers) vPlay(VC.peers[id]); voiceUI(); };
+  // 電腦：按住 V 說話；正在打字時的 V 是字，不算
+  addEventListener("keydown", (e) => {
+    if (e.code !== "KeyV" || e.repeat || !VC || !VC.on) return;
+    const t = e.target;
+    if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)) return;
+    e.preventDefault(); voiceTalk(true);
+  });
+  addEventListener("keyup", (e) => { if (e.code === "KeyV") voiceTalk(false); });
+  addEventListener("blur", () => voiceTalk(false));
+  document.addEventListener("visibilitychange", () => { if (document.hidden) voiceTalk(false); });
+  // 捲動、出牌、跳出吃碰視窗都會讓底下的東西換掉，定期檢查浮動鈕有沒有蓋到可以按的地方
+  setInterval(() => vPlaceFloat(false), 1200);
+  addEventListener("resize", () => vPlaceFloat(true));
+}
+/* 浮動說話鈕挑位置：依序試左中、右中、左上、右上、左下，第一個「底下沒有手牌、按鈕、輸入框、
+   吃碰視窗、音樂鈕」的就用。按住說話的時候絕對不搬，不然手指下面的按鈕跑掉就放不開了。 */
+function vPlaceFloat(force) {
+  const fl = $("pttFloat");
+  if (!fl || fl.hidden || (VC && VC.talking) || matchMedia("(min-width:1081px)").matches) return;
+  const s = 64, m = 10, W = innerWidth, H = innerHeight;
+  const kb = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--kb")) || 0;
+  const L = m, Rx = W - s - m, at = (k) => H * k - s / 2;
+  const spots = [[L, at(.45)], [Rx, at(.45)], [L, 76], [Rx, 76], [L, at(.25)], [Rx, at(.25)],
+                 [L, at(.65)], [Rx, at(.65)], [L, H - kb - 150 - s], [Rx, H - kb - 150 - s]];
+  // 自己的手牌不論輪不輪到自己都不能蓋（沒輪到時牌上沒有 tabindex，光看可點的元素會漏掉）
+  const hot = "button, input, select, textarea, a[href], [tabindex], .acts, #myzone .t, #game-audio-dock";
+  const busy = ([x, y]) => [[x + 6, y + 6], [x + s - 6, y + 6], [x + 6, y + s - 6], [x + s - 6, y + s - 6], [x + s / 2, y + s / 2]]
+    .some(([px, py]) => { const el = document.elementFromPoint(px, py); return !!(el && el !== fl && el.closest && el.closest(hot)); });
+  fl.style.visibility = "hidden";                       // 量的時候先讓自己不擋住下面
+  let pick = fl._spot;
+  if (force || pick == null || pick < 0 || busy(spots[pick])) pick = spots.findIndex((p) => !busy(p));
+  fl.style.visibility = "";
+  fl._spot = pick;
+  fl.classList.toggle("nospot", pick < 0);             // 沒有空位就先收起來，手牌下面那顆照樣能按
+  if (pick < 0) return;
+  fl.style.left = Math.round(spots[pick][0]) + "px";
+  fl.style.top = Math.round(spots[pick][1]) + "px";
+}
+function voiceSync() {
+  const card = $("voicecard");
+  if (!card) return;
+  voiceBind();
+  const online = vOnline();
+  card.hidden = !online;
+  const V = VC;
+  if (V) {
+    const ids = new Set(online ? NET.roster.map((p) => p.peer) : []);
+    for (const id of Object.keys(V.peers)) if (!ids.has(id)) vClose(id);
+    for (const id of Object.keys(V.inVoice)) if (!ids.has(id)) { delete V.inVoice[id]; delete V.talk[id]; }
+    for (const id of Object.keys(V.told)) if (!ids.has(id)) delete V.told[id];
+    if (!online) { V.myPeer = null; if (V.talking) voiceTalk(false); }
+    else if (V.on) {
+      if (V.myPeer !== NET.peer) { V.myPeer = NET.peer; V.told = {}; }
+      for (const id of ids) if (id !== NET.peer && !V.told[id]) { V.told[id] = true; vSend(id, { k: "on" }); }
+    }
+  }
+  voiceUI();
+}
+function vPaintTalk() {
+  document.querySelectorAll(".who[data-vseat]").forEach((el) => el.classList.toggle("talking", vTalkingSeat(+el.dataset.vseat)));
+  document.querySelectorAll("#vlist .vr[data-vpeer]").forEach((el) => el.classList.toggle("talking", !!(VC && VC.talk[el.dataset.vpeer])));
+  const on = !!(VC && VC.talking);
+  for (const id of ["pttBtn", "pttBtn2", "pttFloat"]) { const b = $(id); if (b) b.classList.toggle("on", on); }
+  for (const id of ["pttBtn", "pttBtn2"]) { const b = $(id); if (b) b.textContent = on ? "🎙 說話中…放開就靜音" : "🎙 按住說話"; }
+}
+function voiceUI() {
+  const st = $("vstat"), jb = $("vJoin"), pb = $("pttBtn"), fl = $("pttFloat"), list = $("vlist"), hint = $("vhint");
+  if (!st || !list) return;
+  const V = VC, on = !!(V && V.on), mic = !!(V && V.mic);
+  const others = V ? Object.keys(V.inVoice).filter((k) => V.inVoice[k]).length : 0;
+  st.innerHTML = !on
+    ? (others ? `有 <b>${others}</b> 人在語音裡。` : "") + "按「加入語音」跟同桌的人講話。<b>按住才會出聲</b>，放開就是靜音。"
+    : mic ? `已加入語音（連你 ${others + 1} 人）。<b>按住下面的按鈕說話</b>，電腦也可以按住 V 鍵。`
+    : `已加入語音（連你 ${others + 1} 人）。<b>${vEsc(V.micErr)}</b>`;
+  if (jb) jb.textContent = on ? "離開語音" : "加入語音";
+  if (pb) pb.hidden = !(on && mic);
+  const row = $("pttRow"); if (row) row.hidden = !(on && mic);
+  if (fl) { const was = fl.hidden; fl.hidden = !(on && mic); if (was && !fl.hidden) vPlaceFloat(true); }
+  if (hint) hint.hidden = !(V && V.blocked && on);
+  const rows = NET.roster.filter((p) => p.peer !== NET.peer).map((p) => {
+    const inv = !!(V && V.inVoice[p.peer]), pr = V && V.peers[p.peer];
+    const stt = !inv ? ["沒開語音", ""] : !on ? ["在語音裡", "ok"]
+      : pr ? [pr.state, pr.state === "已連上" ? "ok" : pr.state === "連不上" ? "bad" : ""] : ["連線中", ""];
+    return { id: p.peer, name: p.name, stt, mute: !!(V && V.mute[p.peer]), vol: V && V.vol[p.peer] != null ? V.vol[p.peer] : 1, ctl: on && inv };
+  });
+  const sig = JSON.stringify(rows.map((r) => [r.id, r.name, r.stt, r.mute, r.ctl]));
+  if (list.dataset.sig !== sig) {
+    list.dataset.sig = sig;
+    list.innerHTML = rows.length ? rows.map((r) =>
+      `<div class="vr" data-vpeer="${vEsc(r.id)}"><span class="nm">${vEsc(r.name)}</span><span class="st ${r.stt[1]}">${r.stt[0]}</span>` +
+      (r.ctl ? `<button class="btn mini vm" type="button" data-vmute="${vEsc(r.id)}">${r.mute ? "🔇 靜音中" : "🔊"}</button>` +
+               `<input type="range" min="0" max="100" value="${Math.round(r.vol * 100)}" data-vvol="${vEsc(r.id)}" aria-label="${vEsc(r.name)} 的音量">`
+             : "<span></span>") + "</div>").join("")
+      : '<div class="nethint">同桌還沒有其他真人。</div>';
+    list.querySelectorAll("[data-vmute]").forEach((b) => { b.onclick = () => { const id = b.dataset.vmute, W = vState(); W.mute[id] = !W.mute[id]; vApplyVol(id); voiceUI(); }; });
+    list.querySelectorAll("[data-vvol]").forEach((r) => { r.oninput = () => { const id = r.dataset.vvol; vState().vol[id] = +r.value / 100; vApplyVol(id); }; });
+  }
+  vPaintTalk();
+}
+
 /* 收到別人的訊息。房主收動作，客端收畫面。 */
 function netRecv(from, m) {
   if (!m || typeof m !== "object") return;
+  if (m.t === "rtc") { voiceRecv(from, m); return; }     // 語音的連線握手，房主客端都要收
   if (m.t === "a") {
     if (NET.mode !== "host") return;
     const seat = S.seatPeer.indexOf(from);
@@ -2632,6 +3443,7 @@ function onHostChange(wasHost) {
 
 /* ---------- 連線面板 ---------- */
 function renderNet() {
+  voiceSync();                             // 名單一變，語音連線跟著增減
   const box = $("netbox");
   if (!box) return;
   const mySeat = NET.mode === "solo" ? 0 : S.seatPeer.indexOf(NET.peer);
