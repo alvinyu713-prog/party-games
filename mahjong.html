@@ -472,6 +472,9 @@
   .ptt-float.nospot{display:none !important;}
   .pttrow{margin-top:8px;}
   .pttrow .btn.ptt{margin:0;}
+  .pttrow #vJoin2{width:100%;}
+  /* 工具列的語音鈕：沒加入時是「加入語音」，加入後變成「離開語音」並亮綠框（按住說話在下面那顆） */
+  .mlb.in{border-color:var(--good); color:var(--good);}
   .who.talking{border-color:var(--good); box-shadow:0 0 0 2px rgba(95,179,122,.55); color:var(--silk);}
   .who.talking::before{content:"🎙"; margin-right:2px;}
 
@@ -482,13 +485,35 @@
   body.ml{padding:0; min-height:0;}
   .ml .wrap{max-width:none; gap:0; padding:4px 64px 0 6px;}
   .ml header{display:none;}
-  .ml .row{grid-template-columns:minmax(0,1fr); gap:0;}
+  /* 上面「牌桌｜聊天」，下面手牌橫跨整個寬度 —— 手牌不會因為多了聊天欄而變小。
+     第一欄那層 div 用 display:contents 拆掉，裡面的牌桌、手牌才能各自放進格子。 */
+  .ml .row{grid-template-columns:minmax(0,1fr) auto; grid-template-areas:"board chat" "hand hand"; gap:0; align-items:start;}
+  .ml .row > div:first-child{display:contents;}
+  .ml .boardfit{grid-area:board; min-width:0;}
+  .ml .myzone{grid-area:hand;}
+  /* 聊天欄：只有連線時才出現（單機沒有聊天），高度跟牌桌一樣（--mlboardh 由 fitBoard 設定） */
+  .mlchat{display:none;}
+  .ml .mlchat.on{grid-area:chat; display:flex; flex-direction:column; width:clamp(150px, 24vw, 230px);
+    height:var(--mlboardh, 60vh); margin-left:6px; min-height:0;}
+  .ml .mlchat .card{flex:1; display:flex; flex-direction:column; min-height:0; padding:5px 6px; border-radius:10px;}
+  .ml .mlchat h3{display:none;}
+  .ml .mlchat .chatlog{flex:1; height:auto; min-height:0; margin-bottom:4px; padding:4px 6px;}
+  .ml .mlchat .quick{flex-wrap:nowrap; overflow-x:auto; margin-bottom:4px; scrollbar-width:none;}
+  .ml .mlchat .quick::-webkit-scrollbar{display:none;}
+  .ml .mlchat .quick button{white-space:nowrap; flex:none;}
+  .ml .mlchat .emoji{max-height:45%;}
+  .ml .mlchat .netrow{margin:0; flex-wrap:nowrap; gap:4px;}
+  /* 16px：iPhone 點輸入框時，字小於 16px 會自動把整頁放大 */
+  .ml .mlchat .netrow input{min-width:0; font-size:16px; padding:4px 6px;}
+  .ml .mlchat .netrow .mini{padding:5px 8px;}
   .ml .board{padding:5px; border-width:5px; border-radius:12px;}
   .ml .grid{grid-template-columns:minmax(0,1fr) auto minmax(0,1fr); gap:3px 8px;}
   .ml .grid > div:nth-child(1), .ml .grid > div:nth-child(5){
     grid-column:1 / 4 !important; flex-direction:row !important; justify-content:center; align-items:center !important; gap:8px !important;}
   .ml .grid > div{gap:3px !important;}
-  .ml .seat{min-height:0; gap:3px;}
+  /* 空間讓給牌河：背面的牌拿掉（名牌上本來就寫著幾張），名牌、花牌、副露排在同一行 */
+  .ml .seat{min-height:0; gap:3px; flex-direction:row; flex-wrap:wrap; justify-content:center; align-items:center;}
+  .ml .seat .backs{display:none !important;}
   .ml .seat.side-t{flex-direction:row; align-items:center;}
   .ml .seat .flowers, .ml .seat .backs, .ml .melds{min-height:0;}
   .ml .seat.side-l, .ml .seat.side-r{max-width:none;}
@@ -496,9 +521,11 @@
   .ml .who{font-size:10px; padding:2px 6px; gap:4px;}
   .ml .who b{font-size:11px;}
   .ml .pond{padding:3px; gap:2px; grid-template-columns:repeat(12, calc(40px * var(--ts))); height:calc(112px * var(--ts) + 8px);}
-  .ml .pond.v{grid-template-columns:repeat(6, calc(40px * var(--ts))); height:calc(169px * var(--ts) + 10px);}
+  /* 左右兩家也改成兩排（一樣自動捲到最新），省下的高度拿去把牌放大 */
+  .ml .pond.v{grid-template-columns:repeat(6, calc(40px * var(--ts))); height:calc(112px * var(--ts) + 8px);}
   .ml .center{width:auto; min-width:112px; padding:4px 8px; gap:1px;}
-  .ml .center .wind{font-size:20px;}
+  .ml .center .wind{font-size:16px;}
+  .ml .center .sub:nth-child(2){display:none;}   /* 「東圈 第 1 局・莊 某某」太長，橫拿時只留風位、剩幾張、誰的回合 */
   .ml .center .left{font-size:14px;}
   .ml .center .sub{font-size:9.5px;}
   .ml .center .lastout{margin-top:3px; padding-top:3px; flex-direction:row; flex-wrap:wrap; justify-content:center; gap:1px 6px;}
@@ -562,12 +589,16 @@
     <div>
       <div class="boardfit" id="boardfit"><div class="board" id="board"></div></div>
       <div class="myzone" id="myzone"></div>
-      <div class="pttrow" id="pttRow" hidden><button class="btn ptt noselect" id="pttBtn2" type="button">🎙 按住說話</button></div>
+      <div class="pttrow" id="pttRow" hidden>
+        <button class="btn go" id="vJoin2" type="button">🎙 加入語音</button>
+        <button class="btn ptt noselect" id="pttBtn2" type="button" hidden>🎙 按住說話</button>
+      </div>
       <div class="shout" id="shout" hidden></div>
       <div class="acts" id="acts"></div>
       <button class="ptt-float noselect" id="pttFloat" type="button" hidden aria-label="按住說話">🎙<small>按住說話</small></button>
       <div class="mlbar" id="mlbar">
         <button class="mlb" id="mlMenu" type="button" aria-label="選單：聊天、語音、設定">☰<small>選單</small><i class="dot" id="mlDot" hidden></i></button>
+        <button class="mlb" id="mlVoice" type="button" hidden>🎙<small>加入語音</small></button>
       </div>
       <div class="mlshade" id="mlShade"></div>
       <div class="rotip" id="rotip" hidden>
@@ -580,6 +611,7 @@
         </div>
       </div>
     </div>
+    <div class="mlchat" id="mlChat"></div>
     <div class="side">
       <button class="btn mlclose" id="mlClose" type="button">✕ 回到牌桌</button>
       <div class="card"><h3>聽牌</h3><div id="tenpai"></div></div>
@@ -2452,6 +2484,7 @@ function fitBoard(force) {
     if (fitCache.nh && Math.abs(cur - fitCache.nh) < 24 && Math.abs(rsv - fitCache.rsv) < 24) {
       b.style.transform = fitCache.k < 0.999 ? "scale(" + fitCache.k.toFixed(4) + ")" : "none";
       wrap.style.height = Math.round(fitCache.nh * fitCache.k) + "px";
+      mlPopSpot();
       return;
     }
   }
@@ -2479,6 +2512,8 @@ function mlPopSpot() {
   if (!isML()) return;
   const mz = $("myzone"); if (!mz) return;
   document.body.style.setProperty("--mlpop", Math.max(0, Math.round(innerHeight - mz.getBoundingClientRect().top + 6)) + "px");
+  const bf = $("boardfit");                 // 聊天欄跟牌桌一樣高
+  if (bf) document.body.style.setProperty("--mlboardh", Math.max(120, bf.offsetHeight) + "px");
 }
 let fitT = null;
 addEventListener("resize", () => { clearTimeout(fitT); fitT = setTimeout(() => layoutSync(), 80); });
@@ -2525,14 +2560,42 @@ function mlDrawer(open) {
   if (shade) shade.classList.toggle("on", open);
   if (open) { const dot = $("mlDot"); if (dot) dot.hidden = true; }
 }
+/* 聊天欄：手機橫拿而且連線中才放到牌桌右邊，其他時候放回側欄（語音卡片前面）。有搬動就回傳 true。 */
+/* 版面判斷在頁面載入時就會跑，那時連線物件 NET（宣告在檔案後面）還沒建好，
+   直接讀會丟錯、整個遊戲停在空白桌面 —— 實測手機橫拿一開就沒有牌。還沒建好就當作單機。 */
+function mlChatOn() {
+  if (!isML()) return false;
+  try { return NET.mode !== "solo"; } catch (e) { return false; }
+}
+function mlChatPlace() {
+  const card = $("chatcard"), col = $("mlChat"), voice = $("voicecard");
+  if (!card || !col) return false;
+  const want = mlChatOn(), inCol = card.parentElement === col;
+  col.classList.toggle("on", want);
+  if (want && !inCol) { col.appendChild(card); return true; }
+  if (!want && inCol && voice) { voice.parentElement.insertBefore(card, voice); return true; }
+  return false;
+}
+/* 牌面倍率：依可用的寬、高與有沒有聊天欄，算出放得下的最大值。
+   牌桌高 ≈ 330×ts＋75、寬 ≈ 480×ts＋216（兩排的牌河三條＋名牌與中央資訊），剩下的誤差交給 fitBoard 微調。 */
+function mlTs() {
+  const chatW = mlChatOn() ? Math.max(150, Math.min(230, innerWidth * .24)) + 6 : 0;
+  const availW = innerWidth - 70 - chatW - 12;
+  const availH = innerHeight - Math.min(innerHeight * .19, 80) - 22;
+  return Math.max(.42, Math.min(.8, (availH - 75) / 330, (availW - 216) / 480));
+}
 function layoutSync() {
   if (!document.body) return;
+  // 橫拿時正在打字：鍵盤一彈出視窗就變矮，這時重算會把牌桌縮成一小塊。等鍵盤收起來（focusout）再算。
+  const act0 = document.activeElement;
+  if (isML() && act0 && (act0.tagName === "INPUT" || act0.tagName === "TEXTAREA")) return;
   const was = isML(), phone = isPhone(), land = deviceLandscape(), ml = phone && land;
   document.body.classList.toggle("ml", ml);
   let ok = false; try { ok = sessionStorage.getItem("mjPortraitOk") === "1"; } catch (e) {}
   const tip = $("rotip"); if (tip) tip.hidden = !(phone && !land && !ok);
+  mlChatPlace();
   if (ml) {
-    document.body.style.setProperty("--ts", Math.max(.42, Math.min(.62, (innerHeight - 64) / 560)).toFixed(3));
+    document.body.style.setProperty("--ts", mlTs().toFixed(3));
     mlHand();
   } else {
     if (was) mlDrawer(false);
@@ -2560,6 +2623,7 @@ function layoutSync() {
   }
   try { if (screen.orientation && screen.orientation.addEventListener) screen.orientation.addEventListener("change", () => setTimeout(layoutSync, 60)); } catch (e) {}
   addEventListener("orientationchange", () => setTimeout(layoutSync, 200));
+  document.addEventListener("focusout", () => setTimeout(layoutSync, 350));   // 鍵盤收起來後補算一次
   layoutSync();
 })();
 function syncHud() {
@@ -3057,7 +3121,7 @@ function chatPing() {
       SFX.play("chat");
       // 手機橫拿時聊天收在抽屜裡，有人講話就在「選單」鈕亮紅點
       const side = document.querySelector(".side"), dot = $("mlDot");
-      if (dot && isML() && !(side && side.classList.contains("open"))) dot.hidden = false;
+      if (dot && isML() && !mlChatOn() && !(side && side.classList.contains("open"))) dot.hidden = false;
     }
   }
   lastChatN = n;
@@ -3456,6 +3520,8 @@ function voiceBind() {
   if (VC_BOUND) return;
   VC_BOUND = true;
   const jb = $("vJoin"); if (jb) jb.onclick = () => voiceJoin();
+  const j2 = $("vJoin2"); if (j2) j2.onclick = () => voiceJoin();     // 手機直拿：手牌下方
+  const mv = $("mlVoice"); if (mv) mv.onclick = () => voiceJoin();    // 手機橫拿：工具列（加入時再按一次就是離開）
   vBindPTT($("pttBtn")); vBindPTT($("pttBtn2")); vBindPTT($("pttFloat"));
   const ub = $("vUnblock");
   if (ub) ub.onclick = () => { if (!VC) return; VC.blocked = false; for (const id in VC.peers) vPlay(VC.peers[id]); voiceUI(); };
@@ -3536,7 +3602,21 @@ function voiceUI() {
     : `已加入語音（連你 ${others + 1} 人）。<b>${vEsc(V.micErr)}</b>`;
   if (jb) jb.textContent = on ? "離開語音" : "加入語音";
   if (pb) pb.hidden = !(on && mic);
-  const row = $("pttRow"); if (row) row.hidden = !(on && mic);
+  /* 手機不用進選單就能用語音：
+     直拿 —— 手牌正下方，沒加入時是「加入語音」，加入後換成「按住說話」；
+     橫拿 —— 右側工具列，「加入語音／離開語音」一顆，按住說話是下面那顆浮動鈕。 */
+  const online = vOnline();
+  const row = $("pttRow"); if (row) row.hidden = !online || (on && !mic);
+  const j2 = $("vJoin2"); if (j2) j2.hidden = on;
+  const p2 = $("pttBtn2"); if (p2) p2.hidden = !(on && mic);
+  const mv = $("mlVoice");
+  if (mv) {
+    mv.hidden = !online;
+    const html = on ? "🔇<small>離開語音</small>" : "🎙<small>加入語音</small>";
+    if (mv.innerHTML !== html) mv.innerHTML = html;
+    mv.classList.toggle("in", on);
+    mv.setAttribute("aria-label", on ? "離開語音" : "加入語音");
+  }
   if (fl) { const was = fl.hidden; fl.hidden = !(on && mic); if (was && !fl.hidden) vPlaceFloat(true); }
   if (hint) hint.hidden = !(V && V.blocked && on);
   const rows = NET.roster.filter((p) => p.peer !== NET.peer).map((p) => {
@@ -3618,6 +3698,7 @@ function onHostChange(wasHost) {
 /* ---------- 連線面板 ---------- */
 function renderNet() {
   voiceSync();                             // 名單一變，語音連線跟著增減
+  if (mlChatPlace()) layoutSync();         // 手機橫拿時連上／斷線：聊天欄出現或收起，牌面倍率要重算
   const box = $("netbox");
   if (!box) return;
   const mySeat = NET.mode === "solo" ? 0 : S.seatPeer.indexOf(NET.peer);
