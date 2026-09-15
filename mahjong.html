@@ -474,6 +474,76 @@
   .pttrow .btn.ptt{margin:0;}
   .who.talking{border-color:var(--good); box-shadow:0 0 0 2px rgba(95,179,122,.55); color:var(--silk);}
   .who.talking::before{content:"🎙"; margin-right:2px;}
+
+  /* ===================== 手機橫拿：一屏玩到底（body.ml 由 layoutSync() 判斷後加上） =====================
+     橫的手機高度只剩 340px 左右，整張電腦版牌桌等比縮下去字會小到看不見。
+     這裡改排法：牌變小（--ts）但文字不縮；對家和自己的牌河攤成長條；手牌排成一排；側欄收成右邊抽屜。 */
+  .mlbar, .mlshade, .mlclose{display:none;}
+  body.ml{padding:0; min-height:0;}
+  .ml .wrap{max-width:none; gap:0; padding:4px 64px 0 6px;}
+  .ml header{display:none;}
+  .ml .row{grid-template-columns:minmax(0,1fr); gap:0;}
+  .ml .board{padding:5px; border-width:5px; border-radius:12px;}
+  .ml .grid{grid-template-columns:minmax(0,1fr) auto minmax(0,1fr); gap:3px 8px;}
+  .ml .grid > div:nth-child(1), .ml .grid > div:nth-child(5){
+    grid-column:1 / 4 !important; flex-direction:row !important; justify-content:center; align-items:center !important; gap:8px !important;}
+  .ml .grid > div{gap:3px !important;}
+  .ml .seat{min-height:0; gap:3px;}
+  .ml .seat.side-t{flex-direction:row; align-items:center;}
+  .ml .seat .flowers, .ml .seat .backs, .ml .melds{min-height:0;}
+  .ml .seat.side-l, .ml .seat.side-r{max-width:none;}
+  .ml .seat.side-l .who, .ml .seat.side-r .who{flex-wrap:wrap; justify-content:center; max-width:200px;}
+  .ml .who{font-size:10px; padding:2px 6px; gap:4px;}
+  .ml .who b{font-size:11px;}
+  .ml .pond{padding:3px; gap:2px; grid-template-columns:repeat(12, calc(40px * var(--ts))); height:calc(112px * var(--ts) + 8px);}
+  .ml .pond.v{grid-template-columns:repeat(6, calc(40px * var(--ts))); height:calc(169px * var(--ts) + 10px);}
+  .ml .center{width:auto; min-width:112px; padding:4px 8px; gap:1px;}
+  .ml .center .wind{font-size:20px;}
+  .ml .center .left{font-size:14px;}
+  .ml .center .sub{font-size:9.5px;}
+  .ml .center .lastout{margin-top:3px; padding-top:3px; flex-direction:row; flex-wrap:wrap; justify-content:center; gap:1px 6px;}
+  .ml .center .lastout .cap{display:none;}
+  .ml .center .lastout .t{width:calc(60px * var(--ts)) !important; height:calc(83px * var(--ts)) !important;}
+  .ml .center .lastout .nm{font-size:12px;}
+  .ml .center .lastout .by{font-size:10px;}
+  .ml .banner{place-items:start center; overflow-y:auto; padding:10px;}
+  /* 手牌一排：牌寬由 mlHand() 依螢幕寬度和副露數算成 --th */
+  .ml .myzone{flex-direction:row; flex-wrap:nowrap; justify-content:center; align-items:flex-end; gap:8px; padding:3px 6px 4px; margin-top:3px; border-radius:10px;}
+  .ml .myhand{margin:0; flex-wrap:nowrap; gap:2px; min-height:0;}
+  .ml .myhand .gap{width:6px;}
+  .ml .mymelds{order:-1; margin:0; min-height:0; flex-wrap:nowrap; gap:3px; align-items:flex-end;}
+  .ml .t.pick:hover{transform:translateY(-5px);}
+  .ml .t.sel{transform:translateY(-7px);}
+  .ml .acts:not(.pop), .ml .pttrow{display:none !important;}
+  .ml .acts.pop{bottom:var(--mlpop, calc(19vh + 16px)); padding:8px 12px;}
+  .ml .acts.pop button.btn{font-size:15px; padding:9px 18px;}
+  /* 右側工具列：選單（有新聊天會亮紅點）＋按住說話；右下角留給音樂鈕 */
+  .ml .mlbar{display:flex; flex-direction:column; gap:8px; position:fixed; right:6px; top:8px; z-index:45;}
+  .mlb{position:relative; width:52px; height:52px; border-radius:12px; border:1px solid var(--line); background:var(--panel-2);
+    color:var(--silk); font-size:20px; line-height:1.05; font-family:inherit; cursor:pointer; padding:0;}
+  .mlb small{display:block; font-size:10px; font-weight:700;}
+  .mlb .dot{position:absolute; top:5px; right:5px; width:10px; height:10px; border-radius:50%; background:var(--bad); box-shadow:0 0 0 2px var(--panel-2);}
+  .ml .ptt-float{left:auto !important; top:auto !important; right:6px !important; bottom:60px !important; width:52px; height:52px; font-size:20px;}
+  .ml .ptt-float.nospot:not([hidden]){display:block !important;}
+  /* 側欄變成從右邊滑出的抽屜 */
+  .ml .side{position:fixed; top:0; right:0; bottom:0; width:min(360px, 74vw); z-index:70; max-height:none; overflow-y:auto;
+    overscroll-behavior:contain; background:var(--felt-3); border-left:1px solid var(--line); padding:10px 10px 30px;
+    transform:translateX(105%); transition:transform .22s ease; visibility:hidden;}
+  .ml .side.open{transform:none; visibility:visible; box-shadow:-18px 0 40px rgba(0,0,0,.6);}
+  .ml .mlshade.on{display:block; position:fixed; inset:0; z-index:69; background:rgba(0,0,0,.45);}
+  .ml .mlclose{display:block; width:100%; margin-bottom:8px;}
+  @media (prefers-reduced-motion:reduce){ .ml .side{transition:none;} }
+
+  /* 手機直拿：建議轉成橫的 */
+  .rotip{position:fixed; inset:0; z-index:90; display:grid; place-items:center; padding:24px; text-align:center;
+    background:rgba(4,16,13,.95);}
+  .rotip .box{max-width:320px;}
+  .rotip .phone{font-size:64px; display:inline-block; animation:rotPhone 1.8s ease-in-out infinite;}
+  @keyframes rotPhone{0%,30%{transform:rotate(0);} 60%,100%{transform:rotate(-90deg);}}
+  @media (prefers-reduced-motion:reduce){ .rotip .phone{animation:none; transform:rotate(-90deg);} }
+  .rotip h2{margin:10px 0 6px; font-family:"Noto Serif TC",serif; font-size:24px; color:var(--gold);}
+  .rotip p{margin:0 0 16px; font-size:14px; line-height:1.7; color:var(--silk-dim);}
+  .rotip .btn{display:block; width:100%; margin-top:8px;}
 </style>
 
 <div class="wrap">
@@ -496,8 +566,22 @@
       <div class="shout" id="shout" hidden></div>
       <div class="acts" id="acts"></div>
       <button class="ptt-float noselect" id="pttFloat" type="button" hidden aria-label="按住說話">🎙<small>按住說話</small></button>
+      <div class="mlbar" id="mlbar">
+        <button class="mlb" id="mlMenu" type="button" aria-label="選單：聊天、語音、設定">☰<small>選單</small><i class="dot" id="mlDot" hidden></i></button>
+      </div>
+      <div class="mlshade" id="mlShade"></div>
+      <div class="rotip" id="rotip" hidden>
+        <div class="box">
+          <div class="phone" aria-hidden="true">📱</div>
+          <h2>把手機轉成橫的</h2>
+          <p>橫著拿，四家的牌河和自己的手牌一個畫面就看完，不用上下捲。</p>
+          <button class="btn go" id="rotFull" type="button" hidden>全螢幕並轉成橫的</button>
+          <button class="btn" id="rotSkip" type="button">先用直的玩</button>
+        </div>
+      </div>
     </div>
     <div class="side">
+      <button class="btn mlclose" id="mlClose" type="button">✕ 回到牌桌</button>
       <div class="card"><h3>聽牌</h3><div id="tenpai"></div></div>
       <div class="card"><h3>籌碼</h3><div class="chips" id="chips"></div></div>
       <div class="card netcard"><h3>連線對戰</h3><div id="netbox"></div></div>
@@ -2057,6 +2141,7 @@ function render() {
 
   // 自己的手牌：畫到縮放區外的 myzone，不跟著牌桌縮小
   const MZ = $("myzone"); MZ.innerHTML = "";
+  mlHand();                                // 手機橫拿：先依張數算好手牌寬度，一排放得下
   const mh = document.createElement("div"); mh.className = "myhand";
   const myTurn = S.turn === ME && S.phase === "discard" && !S.over && !S.pending && !S.claim;
   const hint = myTurn ? bestDiscardHint() : null;
@@ -2350,7 +2435,11 @@ function applyScale() {
 let fitCache = { nh: 0, rsv: 0, vw: 0, vh: 0, k: 1 };
 const reserveOf = () => {
   const mz = $("myzone"), ac = $("acts");
-  return (mz ? mz.offsetHeight : 0) + (ac ? ac.offsetHeight : 0) + 28;
+  /* 吃碰視窗浮起來（.pop）時是 position:fixed，不佔版面。
+     以前照算它的高度，視窗一跳出來牌桌就縮一截、手牌往上跑到視窗底下 —— 桌機也會閃一下。
+     浮起來時改用平常那一列的固定高度（桌機 42，手機橫拿這一列本來就藏起來是 0）。 */
+  const acH = !ac ? 0 : ac.classList.contains("pop") ? (isML() ? 0 : 42) : ac.offsetHeight;
+  return (mz ? mz.offsetHeight : 0) + acH + (isML() ? 6 : 28);
 };
 function fitBoard(force) {
   const wrap = $("boardfit"), b = $("board");
@@ -2379,13 +2468,20 @@ function fitBoard(force) {
   if (nw * k > availW) k = availW / nw;
   /* 下限 0.78：再縮下去桌上的牌會比原本還小，那就本末倒置了。
      塞不下就讓頁面捲，捲一下總比看不清楚好。 */
-  k = Math.max(0.62, Math.min(1, k));
+  k = Math.max(isML() ? 0.45 : 0.62, Math.min(1, k));   // 橫拿的牌已經用 --ts 縮過，這裡只做最後微調
   b.style.transform = k < 0.999 ? "scale(" + k.toFixed(4) + ")" : "none";
   wrap.style.height = Math.round(nh * k) + "px";
   fitCache = { nh, rsv: reserve, vw: innerWidth, vh: innerHeight, k };
+  mlPopSpot();
+}
+/* 手機橫拿：吃碰視窗要浮在手牌正上方。量手牌區頂端離畫面底部多遠，存成 --mlpop。 */
+function mlPopSpot() {
+  if (!isML()) return;
+  const mz = $("myzone"); if (!mz) return;
+  document.body.style.setProperty("--mlpop", Math.max(0, Math.round(innerHeight - mz.getBoundingClientRect().top + 6)) + "px");
 }
 let fitT = null;
-addEventListener("resize", () => { clearTimeout(fitT); fitT = setTimeout(() => fitBoard(true), 80); });
+addEventListener("resize", () => { clearTimeout(fitT); fitT = setTimeout(() => layoutSync(), 80); });
 /* 手機鍵盤打開時，可見範圍比版面小，底部固定的吃碰視窗會被鍵盤蓋住。
    量出被蓋掉的高度存成 --kb，視窗就墊高到鍵盤上面。 */
 if (window.visualViewport) {
@@ -2394,6 +2490,78 @@ if (window.visualViewport) {
     Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop)) + "px");
   vv.addEventListener("resize", kb); vv.addEventListener("scroll", kb); kb();
 }
+
+/* ===================== 手機橫拿／直拿 =====================
+   判斷用「觸控螢幕＋螢幕短邊不超過 540（手機，不是平板）＋視窗寬大於高」。
+   screen.orientation 在部分 iPhone 與模擬器上會一直回報直的，不可靠，所以看視窗比例。
+   唯一會誤判的是直拿打字：鍵盤一彈出視窗變得又寬又矮 —— 焦點在輸入框時就維持目前的版面不切換。
+   電腦（滑鼠）完全不受影響。 */
+function deviceLandscape() {
+  const a = document.activeElement;
+  if (a && (a.tagName === "INPUT" || a.tagName === "TEXTAREA" || a.isContentEditable) && document.body) return isML();
+  return innerWidth > innerHeight;
+}
+function isPhone() {
+  const coarse = window.matchMedia && matchMedia("(pointer: coarse)").matches;
+  return !!coarse && Math.min(screen.width || 9999, screen.height || 9999) <= 540;
+}
+function isML() { return !!document.body && document.body.classList.contains("ml"); }
+function mlHand() {
+  if (!isML() || typeof S === "undefined" || !S.hands || !S.hands[ME]) return;
+  const mz = $("myzone"); if (!mz) return;
+  const ts = parseFloat(document.body.style.getPropertyValue("--ts")) || .5;
+  const n = S.hands[ME].length + ((S.drawn !== null && S.drawn !== undefined && S.turn === ME) ? 1.2 : 0);
+  const meldTiles = S.melds[ME].reduce((a, m) => a + m.tiles.length, 0), fl = S.flowers[ME].length;
+  const meldW = meldTiles * (40 * ts + 1) + S.melds[ME].length * 7 + fl * (21 * ts + 2) + (meldTiles || fl ? 12 : 0);
+  const per = ((mz.clientWidth || innerWidth - 80) - 18 - meldW) / Math.max(14, n);   // 每張（含間距）能分到的寬度
+  const th = Math.max(.42, Math.min(.85, (per - 2) / 58, innerHeight * .19 / 80));
+  document.body.style.setProperty("--th", th.toFixed(3));
+}
+function mlDrawer(open) {
+  const side = document.querySelector(".side"), shade = $("mlShade");
+  if (!side) return;
+  open = !!open && isML();
+  side.classList.toggle("open", open);
+  if (shade) shade.classList.toggle("on", open);
+  if (open) { const dot = $("mlDot"); if (dot) dot.hidden = true; }
+}
+function layoutSync() {
+  if (!document.body) return;
+  const was = isML(), phone = isPhone(), land = deviceLandscape(), ml = phone && land;
+  document.body.classList.toggle("ml", ml);
+  let ok = false; try { ok = sessionStorage.getItem("mjPortraitOk") === "1"; } catch (e) {}
+  const tip = $("rotip"); if (tip) tip.hidden = !(phone && !land && !ok);
+  if (ml) {
+    document.body.style.setProperty("--ts", Math.max(.42, Math.min(.62, (innerHeight - 64) / 560)).toFixed(3));
+    mlHand();
+  } else {
+    if (was) mlDrawer(false);
+    document.body.style.removeProperty("--ts"); document.body.style.removeProperty("--th");
+  }
+  fitBoard(true);
+}
+(function bindLayout() {
+  const mb = $("mlMenu"); if (mb) mb.onclick = () => mlDrawer(!document.querySelector(".side").classList.contains("open"));
+  const cl = $("mlClose"); if (cl) cl.onclick = () => mlDrawer(false);
+  const sh = $("mlShade"); if (sh) sh.onclick = () => mlDrawer(false);
+  addEventListener("keydown", (e) => { if (e.key === "Escape") mlDrawer(false); });
+  const sk = $("rotSkip");
+  if (sk) sk.onclick = () => { try { sessionStorage.setItem("mjPortraitOk", "1"); } catch (e) {} layoutSync(); };
+  // 只有 Android 這類支援「全螢幕＋鎖方向」的才顯示；iPhone 不讓網頁鎖方向，就只請使用者自己轉
+  const fb = $("rotFull");
+  const canLock = !!(document.documentElement.requestFullscreen && screen.orientation && screen.orientation.lock);
+  if (fb) {
+    fb.hidden = !canLock;
+    fb.onclick = async () => {
+      try { await document.documentElement.requestFullscreen({ navigationUI: "hide" }); await screen.orientation.lock("landscape"); }
+      catch (e) { fb.textContent = "這支手機沒辦法自動轉，請手動轉成橫的"; fb.disabled = true; }
+      layoutSync();
+    };
+  }
+  try { if (screen.orientation && screen.orientation.addEventListener) screen.orientation.addEventListener("change", () => setTimeout(layoutSync, 60)); } catch (e) {}
+  addEventListener("orientationchange", () => setTimeout(layoutSync, 200));
+  layoutSync();
+})();
 function syncHud() {
   $("hRound").textContent = WINDS[S.roundWind] + " " + S.hand;
   $("hLeft").textContent = S.wall.length;
@@ -2885,7 +3053,12 @@ function chatPing() {
   if (lastChatN < 0) { lastChatN = n; return; }
   if (n > lastChatN) {
     const last = S.chat[n - 1];
-    if (!last || last.s !== ME) SFX.play("chat");
+    if (!last || last.s !== ME) {
+      SFX.play("chat");
+      // 手機橫拿時聊天收在抽屜裡，有人講話就在「選單」鈕亮紅點
+      const side = document.querySelector(".side"), dot = $("mlDot");
+      if (dot && isML() && !(side && side.classList.contains("open"))) dot.hidden = false;
+    }
   }
   lastChatN = n;
 }
@@ -3304,7 +3477,8 @@ function voiceBind() {
    吃碰視窗、音樂鈕」的就用。按住說話的時候絕對不搬，不然手指下面的按鈕跑掉就放不開了。 */
 function vPlaceFloat(force) {
   const fl = $("pttFloat");
-  if (!fl || fl.hidden || (VC && VC.talking) || matchMedia("(min-width:1081px)").matches) return;
+  // 手機橫拿時浮動鈕固定在右側工具列（CSS 決定位置），不用自己找地方
+  if (!fl || fl.hidden || (VC && VC.talking) || matchMedia("(min-width:1081px)").matches || isML()) return;
   const s = 64, m = 10, W = innerWidth, H = innerHeight;
   const kb = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--kb")) || 0;
   const L = m, Rx = W - s - m, at = (k) => H * k - s / 2;
