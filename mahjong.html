@@ -475,6 +475,10 @@
   .pttrow #vJoin2{width:100%;}
   /* 工具列的語音鈕：沒加入時是「加入語音」，加入後變成「離開語音」並亮綠框（按住說話在下面那顆） */
   .mlb.in{border-color:var(--good); color:var(--good);}
+  /* 語音提醒／嘯叫偵測的通知，浮在畫面上方 */
+  .vnotice{position:fixed; top:10px; left:50%; transform:translateX(-50%); z-index:80; max-width:min(92vw,560px);
+    padding:9px 14px; border-radius:10px; background:#5a1f18; border:1px solid var(--bad); color:#fff;
+    font-size:13px; line-height:1.6; box-shadow:0 10px 30px rgba(0,0,0,.6); text-align:center;}
   .who.talking{border-color:var(--good); box-shadow:0 0 0 2px rgba(95,179,122,.55); color:var(--silk);}
   .who.talking::before{content:"🎙"; margin-right:2px;}
 
@@ -596,6 +600,7 @@
       <div class="shout" id="shout" hidden></div>
       <div class="acts" id="acts"></div>
       <button class="ptt-float noselect" id="pttFloat" type="button" hidden aria-label="按住說話">🎙<small>按住說話</small></button>
+      <div class="vnotice" id="vNotice" role="alert" hidden></div>
       <div class="mlbar" id="mlbar">
         <button class="mlb" id="mlMenu" type="button" aria-label="選單：聊天、語音、設定">☰<small>選單</small><i class="dot" id="mlDot" hidden></i></button>
         <button class="mlb" id="mlVoice" type="button" hidden>🎙<small>加入語音</small></button>
@@ -2481,7 +2486,9 @@ function fitBoard(force) {
      改成：視窗沒變、盤面高度變化不到 12px 就沿用上次的倍率。 */
   if (!force && fitCache.vw === innerWidth && fitCache.vh === innerHeight) {
     const cur = b.offsetHeight, rsv = reserveOf();
-    if (fitCache.nh && Math.abs(cur - fitCache.nh) < 24 && Math.abs(rsv - fitCache.rsv) < 24) {
+    /* 手機橫拿整頁不能捲：沿用舊倍率會超出畫面（哪怕只多 1px）就不沿用，重算。 */
+    const spill = isML() && wrap.getBoundingClientRect().top + cur * fitCache.k + rsv > innerHeight + 1;
+    if (fitCache.nh && !spill && Math.abs(cur - fitCache.nh) < 24 && Math.abs(rsv - fitCache.rsv) < 24) {
       b.style.transform = fitCache.k < 0.999 ? "scale(" + fitCache.k.toFixed(4) + ")" : "none";
       wrap.style.height = Math.round(fitCache.nh * fitCache.k) + "px";
       mlPopSpot();
@@ -3375,13 +3382,18 @@ async function voiceJoin() {
   if (V.on) { voiceLeave(); return; }
   if (!vOnline()) return;
   V.on = true; V.micErr = ""; V.told = {};
+  vCtx();                                  // 在這次點擊裡建好 WebAudio，iPhone 規定要有使用者手勢才能出聲
   voiceUI();
   try {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw Object.assign(new Error("no"), { name: "NoMedia" });
-    const mic = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+    /* 自動增益關掉：同一個房間時，別台手機喇叭的回授聲被收進來，自動增益會把它拉回滿音量，
+       一圈一圈越來越大聲 —— 使用者實測 iPhone 同房「尖銳嘯叫越來越大聲、耳朵很痛」。 */
+    const mic = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: false } });
     mic.getAudioTracks().forEach((t) => { t.enabled = false; });      // 預設靜音，按住才開
     if (!V.on) { mic.getTracks().forEach((t) => t.stop()); return; }  // 等權限的時候已經按了離開
     V.mic = mic;
+    let told = false; try { told = sessionStorage.getItem("mjVoiceTip") === "1"; sessionStorage.setItem("mjVoiceTip", "1"); } catch (x) {}
+    if (!told) vNotice("提醒：跟你在同一個房間的人請戴耳機，或在語音卡片把彼此設成 🔇，不然喇叭和麥克風會互相回授、發出嘯叫。");
   } catch (e) {
     V.mic = null;
     V.micErr = !window.isSecureContext ? "這個網址不是 https，瀏覽器不給麥克風，只能聽別人講"
@@ -3410,7 +3422,7 @@ function vPeer(id) {
   pc.ontrack = (e) => {
     if (!p.audio) { p.audio = new Audio(); p.audio.autoplay = true; p.audio.setAttribute("playsinline", ""); }
     p.audio.srcObject = (e.streams && e.streams[0]) || new MediaStream([e.track]);
-    vApplyVol(id); vPlay(p);
+    vWire(p, p.audio.srcObject); vPlay(p);
   };
   pc.onconnectionstatechange = () => {
     const s = pc.connectionState;
@@ -3442,6 +3454,7 @@ function vClose(id) {
   const V = VC; if (!V || !V.peers[id]) return;
   const p = V.peers[id];
   try { p.pc.close(); } catch (e) {}
+  vUnwire(p);
   if (p.audio) { try { p.audio.pause(); } catch (e) {} p.audio.srcObject = null; }
   delete V.peers[id];
 }
@@ -3450,11 +3463,108 @@ function vPlay(p) {
   const r = p.audio.play();
   if (r && r.catch) r.catch(() => { if (VC) { VC.blocked = true; voiceUI(); } });
 }
+/* ---------- 收聽保護：音量、限幅、嘯叫偵測 ----------
+   收到的聲音不直接用 <audio> 播，改接 WebAudio：
+   - 音量：iPhone 完全不理 <audio>.volume，拉桿要靠 GainNode 才有作用
+   - 限幅器：回授嘯叫或有人大吼，輸出也會被壓住，不會刺耳
+   - 分析器：偵測「持續、很大聲、能量集中在單一頻率」的尖銳聲 → 自動停播那個人
+   WebAudio 接不起來（或接了卻收不到聲音）就退回 <audio> 直接播，至少聽得到。 */
+var VA = null, V_TBUF = null, V_FBUF = null;
+function vCtx() {
+  try {
+    if (!VA) { const C = window.AudioContext || window.webkitAudioContext; if (!C) return null; VA = new C(); }
+    if (VA.state === "suspended") VA.resume().catch(() => {});
+    return VA;
+  } catch (e) { return null; }
+}
+/* 聲音從哪裡出來：
+   - iPhone：走 WebAudio（音量＋限幅器）。iPhone 不理 <audio>.volume，而且它的回音消除是系統層級，改走 WebAudio 不受影響。
+   - Android／電腦：照舊用 <audio> 播。Chrome 的回音消除只認得從 <audio> 播出去的聲音，
+     改走 WebAudio 的話，各自在家開擴音的人反而會聽到回音。這裡 WebAudio 只拿來「聽」（嘯叫偵測）。
+   MJ_VOICE_WEBOUT 讓測試可以強制指定。 */
+function vWebOut() {
+  if (window.MJ_VOICE_WEBOUT != null) return !!window.MJ_VOICE_WEBOUT;
+  const ua = navigator.userAgent || "";
+  return /iP(hone|ad|od)/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+}
+function vWire(p, stream) {
+  vUnwire(p);
+  const ctx = vCtx();
+  if (ctx && stream && ctx.createMediaStreamSource) {
+    try {
+      p.src = ctx.createMediaStreamSource(stream);
+      p.an = ctx.createAnalyser(); p.an.fftSize = 2048; p.an.smoothingTimeConstant = 0;
+      p.src.connect(p.an);
+      if (vWebOut()) {
+        p.gain = ctx.createGain();
+        p.comp = ctx.createDynamicsCompressor();
+        p.comp.threshold.value = -24; p.comp.knee.value = 6; p.comp.ratio.value = 20;
+        p.comp.attack.value = .002; p.comp.release.value = .2;
+        p.src.connect(p.gain); p.gain.connect(p.comp); p.comp.connect(ctx.destination);
+        p.web = true;
+      }
+      p.howl = 0; p.dead = 0; p.heard = false;
+    } catch (e) { vUnwire(p); }
+  }
+  vApplyVol(p.id);
+}
+function vUnwire(p) {
+  for (const k of ["src", "gain", "comp", "an"]) { try { if (p[k]) p[k].disconnect(); } catch (e) {} p[k] = null; }
+  p.web = false;
+}
 function vApplyVol(id) {
   const V = VC, p = V && V.peers[id];
-  if (!p || !p.audio) return;
-  p.audio.muted = !!V.mute[id];
-  p.audio.volume = V.vol[id] == null ? 1 : V.vol[id];
+  if (!p) return;
+  const vol = V.mute[id] ? 0 : (V.vol[id] == null ? .85 : V.vol[id]);
+  if (p.web && p.gain) {
+    p.gain.gain.value = vol;
+    if (p.audio) p.audio.muted = true;       // 聲音由 WebAudio 出；<audio> 只負責讓串流流動（Chrome 需要）
+  } else if (p.audio) {
+    p.audio.muted = !!V.mute[id];
+    p.audio.volume = V.vol[id] == null ? .85 : V.vol[id];
+  }
+}
+function vNotice(msg) {
+  const el = $("vNotice"); if (!el) return;
+  el.textContent = msg; el.hidden = false;
+  clearTimeout(vNotice.t); vNotice.t = setTimeout(() => { el.hidden = true; }, 8000);
+}
+function vGuardTick() {
+  const V = VC; if (!V || !V.on || !VA) return;
+  for (const id in V.peers) {
+    const p = V.peers[id];
+    if (!p.an) continue;                           // 兩種出聲方式都有分析器，嘯叫偵測一律照做
+    const n = p.an.fftSize;
+    if (!V_TBUF || V_TBUF.length !== n) V_TBUF = new Float32Array(n);
+    p.an.getFloatTimeDomainData(V_TBUF);
+    let s = 0; for (let i = 0; i < n; i++) s += V_TBUF[i] * V_TBUF[i];
+    const rms = Math.sqrt(s / n);
+    if (rms > 1e-4) p.heard = true;
+    // 對方在說話 2.5 秒了，WebAudio 這條路卻一點聲音都沒有：這台瀏覽器接不起來，退回 <audio>
+    if (p.web && V.talk[id] && !p.heard) { if (++p.dead > 25) { vUnwire(p); vApplyVol(id); continue; } } else p.dead = 0;
+    if (V.mute[id]) { p.howl = 0; continue; }
+    let tonal = false;
+    if (rms > .1) {
+      const m = p.an.frequencyBinCount;
+      if (!V_FBUF || V_FBUF.length !== m) V_FBUF = new Float32Array(m);
+      p.an.getFloatFrequencyData(V_FBUF);
+      const hz = VA.sampleRate / n, lo = Math.floor(250 / hz), hi = Math.min(m, Math.ceil(6000 / hz));
+      let peakI = lo, peak = -Infinity, total = 0;
+      for (let i = lo; i < hi; i++) { const w = Math.pow(10, V_FBUF[i] / 10); total += w; if (V_FBUF[i] > peak) { peak = V_FBUF[i]; peakI = i; } }
+      let near = 0;
+      for (let i = Math.max(lo, peakI - 2); i <= Math.min(hi - 1, peakI + 2); i++) near += Math.pow(10, V_FBUF[i] / 10);
+      tonal = total > 0 && near / total > .55;     // 一半以上的能量擠在同一個頻率 = 嘯叫，說話的聲音分散得多
+    }
+    p.howl = tonal ? p.howl + 1 : Math.max(0, p.howl - 1);
+    if (p.howl >= 6) {                             // 連續約 0.6 秒
+      p.howl = 0;
+      V.mute[id] = true; V.auto = V.auto || {}; V.auto[id] = true;
+      vApplyVol(id);
+      const r = NET.roster.find((x) => x.peer === id);
+      vNotice(`偵測到嘯叫：你跟「${r ? r.name : "對方"}」可能在同一個房間，已停止播放他的聲音。要恢復請到語音卡片按「🔇 同房」。`);
+      voiceUI();
+    }
+  }
 }
 async function voiceRecv(from, m) {
   const V = vState();
@@ -3524,7 +3634,7 @@ function voiceBind() {
   const mv = $("mlVoice"); if (mv) mv.onclick = () => voiceJoin();    // 手機橫拿：工具列（加入時再按一次就是離開）
   vBindPTT($("pttBtn")); vBindPTT($("pttBtn2")); vBindPTT($("pttFloat"));
   const ub = $("vUnblock");
-  if (ub) ub.onclick = () => { if (!VC) return; VC.blocked = false; for (const id in VC.peers) vPlay(VC.peers[id]); voiceUI(); };
+  if (ub) ub.onclick = () => { if (!VC) return; VC.blocked = false; vCtx(); for (const id in VC.peers) vPlay(VC.peers[id]); voiceUI(); };
   // 電腦：按住 V 說話；正在打字時的 V 是字，不算
   addEventListener("keydown", (e) => {
     if (e.code !== "KeyV" || e.repeat || !VC || !VC.on) return;
@@ -3537,6 +3647,7 @@ function voiceBind() {
   document.addEventListener("visibilitychange", () => { if (document.hidden) voiceTalk(false); });
   // 捲動、出牌、跳出吃碰視窗都會讓底下的東西換掉，定期檢查浮動鈕有沒有蓋到可以按的地方
   setInterval(() => vPlaceFloat(false), 1200);
+  setInterval(vGuardTick, 100);            // 嘯叫偵測：每 0.1 秒看一次
   addEventListener("resize", () => vPlaceFloat(true));
 }
 /* 浮動說話鈕挑位置：依序試左中、右中、左上、右上、左下，第一個「底下沒有手牌、按鈕、輸入框、
@@ -3623,18 +3734,19 @@ function voiceUI() {
     const inv = !!(V && V.inVoice[p.peer]), pr = V && V.peers[p.peer];
     const stt = !inv ? ["沒開語音", ""] : !on ? ["在語音裡", "ok"]
       : pr ? [pr.state, pr.state === "已連上" ? "ok" : pr.state === "連不上" ? "bad" : ""] : ["連線中", ""];
-    return { id: p.peer, name: p.name, stt, mute: !!(V && V.mute[p.peer]), vol: V && V.vol[p.peer] != null ? V.vol[p.peer] : 1, ctl: on && inv };
+    return { id: p.peer, name: p.name, stt, mute: !!(V && V.mute[p.peer]), auto: !!(V && V.auto && V.auto[p.peer]),
+             vol: V && V.vol[p.peer] != null ? V.vol[p.peer] : .85, ctl: on && inv };
   });
-  const sig = JSON.stringify(rows.map((r) => [r.id, r.name, r.stt, r.mute, r.ctl]));
+  const sig = JSON.stringify(rows.map((r) => [r.id, r.name, r.stt, r.mute, r.auto, r.ctl]));
   if (list.dataset.sig !== sig) {
     list.dataset.sig = sig;
     list.innerHTML = rows.length ? rows.map((r) =>
       `<div class="vr" data-vpeer="${vEsc(r.id)}"><span class="nm">${vEsc(r.name)}</span><span class="st ${r.stt[1]}">${r.stt[0]}</span>` +
-      (r.ctl ? `<button class="btn mini vm" type="button" data-vmute="${vEsc(r.id)}">${r.mute ? "🔇 靜音中" : "🔊"}</button>` +
+      (r.ctl ? `<button class="btn mini vm" type="button" data-vmute="${vEsc(r.id)}">${r.mute ? (r.auto ? "🔇 同房" : "🔇 靜音中") : "🔊"}</button>` +
                `<input type="range" min="0" max="100" value="${Math.round(r.vol * 100)}" data-vvol="${vEsc(r.id)}" aria-label="${vEsc(r.name)} 的音量">`
              : "<span></span>") + "</div>").join("")
       : '<div class="nethint">同桌還沒有其他真人。</div>';
-    list.querySelectorAll("[data-vmute]").forEach((b) => { b.onclick = () => { const id = b.dataset.vmute, W = vState(); W.mute[id] = !W.mute[id]; vApplyVol(id); voiceUI(); }; });
+    list.querySelectorAll("[data-vmute]").forEach((b) => { b.onclick = () => { const id = b.dataset.vmute, W = vState(); W.mute[id] = !W.mute[id]; if (W.auto) delete W.auto[id]; vApplyVol(id); voiceUI(); }; });
     list.querySelectorAll("[data-vvol]").forEach((r) => { r.oninput = () => { const id = r.dataset.vvol; vState().vol[id] = +r.value / 100; vApplyVol(id); }; });
   }
   vPaintTalk();
