@@ -473,6 +473,11 @@
   .pttrow{margin-top:8px;}
   .pttrow .btn.ptt{margin:0;}
   .pttrow #vJoin2{width:100%;}
+  /* 代打：手機直拿放在手牌下方（電腦寬螢幕與手機橫拿不用，分別在側欄與工具列） */
+  .awayrow{margin-top:6px;}
+  .awayrow .btn{width:100%;}
+  @media (min-width:1081px){ .awayrow{display:none !important;} }
+  .ml .awayrow{display:none !important;}
   /* 工具列的語音鈕：沒加入時是「加入語音」，加入後變成「離開語音」並亮綠框（按住說話在下面那顆） */
   .mlb.in{border-color:var(--good); color:var(--good);}
   /* 語音提醒／嘯叫偵測的通知，浮在畫面上方 */
@@ -597,6 +602,7 @@
         <button class="btn go" id="vJoin2" type="button">🎙 加入語音</button>
         <button class="btn ptt noselect" id="pttBtn2" type="button" hidden>🎙 按住說話</button>
       </div>
+      <div class="awayrow" id="awayRow" hidden><button class="btn" id="awayBtn2" type="button">🤖 我有事，請電腦代打</button></div>
       <div class="shout" id="shout" hidden></div>
       <div class="acts" id="acts"></div>
       <button class="ptt-float noselect" id="pttFloat" type="button" hidden aria-label="按住說話">🎙<small>按住說話</small></button>
@@ -604,6 +610,7 @@
       <div class="mlbar" id="mlbar">
         <button class="mlb" id="mlMenu" type="button" aria-label="選單：聊天、語音、設定">☰<small>選單</small><i class="dot" id="mlDot" hidden></i></button>
         <button class="mlb" id="mlVoice" type="button" hidden>🎙<small>加入語音</small></button>
+        <button class="mlb" id="mlAway" type="button" hidden>🤖<small>請代打</small></button>
       </div>
       <div class="mlshade" id="mlShade"></div>
       <div class="rotip" id="rotip" hidden>
@@ -3575,6 +3582,13 @@ async function voiceRecv(from, m) {
       if (vInitiator(from)) { const p = vPeer(from); if (!p.pc.remoteDescription && p.pc.signalingState === "stable") vOffer(p); }
       else vPeer(from);
     }
+    /* 別人開了語音、自己還沒加入：語音要雙方都加入才會接起來。
+       使用者實測「手機講話電腦聽不到」就是電腦沒按加入 —— 每個人提醒一次。 */
+    if (!V.on && !(V.hinted && V.hinted[from])) {
+      V.hinted = V.hinted || {}; V.hinted[from] = true;
+      const r = NET.roster.find((x) => x.peer === from);
+      vNotice(`「${r ? r.name : "有人"}」開了語音。你要按「加入語音」才聽得到他說話。`);
+    }
     voiceUI(); return;
   }
   if (m.k === "off") { V.inVoice[from] = false; V.talk[from] = false; vClose(from); voiceUI(); return; }
@@ -3857,6 +3871,21 @@ function renderNet() {
   }
   const aw = $("mjAway");
   if (aw) aw.onclick = () => act({ kind: "away", on: !S.away[mySeat] });
+  /* 手機不用進選單也能代打：橫拿在右側工具列，直拿在手牌下方。只有連線中、有座位才顯示。 */
+  const canAway = NET.mode !== "solo" && mySeat >= 0, awayOn = canAway && !!S.away[mySeat];
+  const toggleAway = () => act({ kind: "away", on: !S.away[mySeat] });
+  const ma = $("mlAway");
+  if (ma) {
+    ma.hidden = !canAway;
+    const h = awayOn ? "✋<small>我回來了</small>" : "🤖<small>請代打</small>";
+    if (ma.innerHTML !== h) ma.innerHTML = h;
+    ma.classList.toggle("in", awayOn);
+    ma.setAttribute("aria-label", awayOn ? "我回來了，自己打" : "我有事，請電腦代打");
+    ma.onclick = toggleAway;
+  }
+  const ar = $("awayRow"), a2 = $("awayBtn2");
+  if (ar) ar.hidden = !canAway;
+  if (a2) { a2.textContent = awayOn ? "✋ 我回來了，自己打" : "🤖 我有事，請電腦代打"; a2.classList.toggle("go", awayOn); a2.onclick = toggleAway; }
   NET.bindLobby && NET.bindLobby();
 }
 
